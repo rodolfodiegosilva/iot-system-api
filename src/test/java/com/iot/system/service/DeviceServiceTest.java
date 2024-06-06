@@ -1,8 +1,8 @@
-// src/test/java/com/iot/system/service/DeviceServiceTest.java
 package com.iot.system.service;
 
 import com.iot.system.model.Device;
 import com.iot.system.repository.DeviceRepository;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
@@ -23,7 +23,8 @@ public class DeviceServiceTest {
     @InjectMocks
     private DeviceService deviceService;
 
-    public DeviceServiceTest() {
+    @BeforeEach
+    public void setUp() {
         MockitoAnnotations.openMocks(this);
     }
 
@@ -72,4 +73,27 @@ public class DeviceServiceTest {
         deviceService.deleteDevice(1L);
         verify(deviceRepository, times(1)).deleteById(1L);
     }
+
+    @Test
+    public void testUpdateDevice() {
+        Device existingDevice = new Device();
+        existingDevice.setId(1L);
+        existingDevice.setName("OldName");
+        existingDevice.setDescription("OldDescription");
+
+        Device updatedDevice = new Device();
+        updatedDevice.setName("NewName");
+        updatedDevice.setDescription("NewDescription");
+
+        when(deviceRepository.findById(1L)).thenReturn(Optional.of(existingDevice));
+        when(deviceRepository.save(existingDevice)).thenReturn(existingDevice);
+
+        Device result = deviceService.updateDevice(1L, updatedDevice);
+
+        assertEquals("NewName", result.getName());
+        assertEquals("NewDescription", result.getDescription());
+        verify(deviceRepository, times(1)).findById(1L);
+        verify(deviceRepository, times(1)).save(existingDevice);
+    }
+
 }

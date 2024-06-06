@@ -1,4 +1,3 @@
-// src/main/java/com/iot/system/controller/DeviceController.java
 package com.iot.system.controller;
 
 import com.iot.system.model.Device;
@@ -27,6 +26,11 @@ public class DeviceController {
     @PostMapping
     public Device createDevice(@RequestBody Device device) {
         return deviceService.saveDevice(device);
+    }
+
+    @PutMapping("/{id}")
+    public Device updateDevice(@PathVariable Long id, @RequestBody Device deviceDetails) {
+        return deviceService.updateDevice(id, deviceDetails);
     }
 
     @DeleteMapping("/{id}")

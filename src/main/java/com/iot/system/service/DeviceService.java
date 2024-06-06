@@ -1,4 +1,3 @@
-// src/main/java/com/iot/system/service/DeviceService.java
 package com.iot.system.service;
 
 import com.iot.system.model.Device;
@@ -7,6 +6,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.Optional;
 
 @Service
 public class DeviceService {
@@ -23,6 +23,16 @@ public class DeviceService {
 
     public Device saveDevice(Device device) {
         return deviceRepository.save(device);
+    }
+
+    public Device updateDevice(Long id, Device deviceDetails) {
+        Device device = deviceRepository.findById(id).orElse(null);
+        if (device != null) {
+            device.setName(deviceDetails.getName());
+            device.setDescription(deviceDetails.getDescription());
+            return deviceRepository.save(device);
+        }
+        return null;
     }
 
     public void deleteDevice(Long id) {
