@@ -1,0 +1,44 @@
+name: Deploy Iot System Application
+
+on:
+    push:
+      branches: [ "main" ]
+
+jobs:
+    build:
+        runs-on: ubuntu-latest
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v3
+
+            - name: Setup Java
+              uses: actions/setup-java@v3
+              with:
+                distribution: 'temurin'
+                java-version: '17'
+            
+            - name: Grant execute permission for gradlew
+              run: chmod +x ./gradlew
+            
+            - name: Build with Gradle Wrapper
+              run: ./gradlew build -x test
+
+            - name: Login Docker Hub
+              run: docker login -u ${{secrets.DOCKER_USERNAME}} -p ${{secrets.DOCKER_PASSWORD}}
+              
+            - name: Build docker image
+              run: docker build -t diegoseven/iot-system .
+
+            - name: Push image docker
+              run: docker push diegoseven/iot-system
+
+    deploy:
+        needs: build
+        runs-on: self-hosted
+        steps:
+            - name: Pull image from docker hub
+              run: docker pull diegoseven/iot-system:latest
+            - name: Remove docker container
+              run: docker rm -f iot-system
+            - name: Run docker container
+              run: docker run --network host -d -p 8080:8080 -e DATABASE_USERNAME=${{secrets.DATABASE_USERNAME}} -e DATABASE_PASSWORD='${{secrets.DATABASE_PASSWORD}}' -e DATABASE_URL=${{secrets.DATABASE_URL}} --name iot-system diegoseven/iot-system
