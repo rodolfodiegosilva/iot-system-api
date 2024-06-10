@@ -1,12 +1,11 @@
 // src/main/java/com/iot/system/model/Device.java
 package com.iot.system.model;
 
+import com.iot.system.user.User;
+import jakarta.persistence.*;
+import lombok.Data;
 
-import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-
+@Data
 @Entity
 public class Device {
     @Id
@@ -15,28 +14,7 @@ public class Device {
     private String name;
     private String description;
 
-    // Getters and Setters
-    public Long getId() {
-        return id;
-    }
-
-    public void setId(Long id) {
-        this.id = id;
-    }
-
-    public String getName() {
-        return name;
-    }
-
-    public void setName(String name) {
-        this.name = name;
-    }
-
-    public String getDescription() {
-        return description;
-    }
-
-    public void setDescription(String description) {
-        this.description = description;
-    }
+    @ManyToOne
+    @JoinColumn(name = "user_id")
+    private User user;
 }

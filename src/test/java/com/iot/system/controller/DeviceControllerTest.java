@@ -1,11 +1,11 @@
 package com.iot.system.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.iot.system.dto.DeviceDTO;
 import com.iot.system.model.Device;
 import com.iot.system.service.DeviceService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
@@ -16,6 +16,8 @@ import org.springframework.test.web.servlet.MockMvc;
 import java.util.Arrays;
 import java.util.List;
 
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
@@ -38,13 +40,13 @@ public class DeviceControllerTest {
 
     @Test
     public void testGetAllDevices() throws Exception {
-        Device device1 = new Device();
+        DeviceDTO device1 = new DeviceDTO();
         device1.setName("Device1");
 
-        Device device2 = new Device();
+        DeviceDTO device2 = new DeviceDTO();
         device2.setName("Device2");
 
-        List<Device> devices = Arrays.asList(device1, device2);
+        List<DeviceDTO> devices = Arrays.asList(device1, device2);
 
         when(deviceService.getAllDevices()).thenReturn(devices);
 
@@ -58,7 +60,7 @@ public class DeviceControllerTest {
 
     @Test
     public void testGetDeviceById() throws Exception {
-        Device device = new Device();
+        DeviceDTO device = new DeviceDTO();
         device.setId(1L);
         device.setName("Device1");
 
@@ -73,7 +75,7 @@ public class DeviceControllerTest {
 
     @Test
     public void testCreateDevice() throws Exception {
-        Device device = new Device();
+        DeviceDTO device = new DeviceDTO();
         device.setName("Device1");
 
         when(deviceService.saveDevice(any(Device.class))).thenReturn(device);
@@ -89,7 +91,7 @@ public class DeviceControllerTest {
 
     @Test
     public void testUpdateDevice() throws Exception {
-        Device device = new Device();
+        DeviceDTO device = new DeviceDTO();
         device.setId(1L);
         device.setName("UpdatedDevice");
 
@@ -107,7 +109,7 @@ public class DeviceControllerTest {
     @Test
     public void testDeleteDevice() throws Exception {
         mockMvc.perform(delete("/devices/1"))
-                .andExpect(status().isOk());
+                .andExpect(status().isNoContent());
 
         verify(deviceService, times(1)).deleteDevice(1L);
     }
@@ -124,7 +126,7 @@ public class DeviceControllerTest {
 
     @Test
     public void testUpdateDevice_NotFound() throws Exception {
-        Device device = new Device();
+        DeviceDTO device = new DeviceDTO();
         device.setName("UpdatedDevice");
 
         when(deviceService.updateDevice(eq(1L), any(Device.class))).thenReturn(null);
