@@ -41,4 +41,4 @@ jobs:
             - name: Remove docker container
               run: docker rm -f iot-system
             - name: Run docker container
-              run: docker run --network host -d -p 8080:8080 -e DATABASE_PASSWORD='${{secrets.MY_JWT_SECRET_KEY}}' -e DATABASE_USERNAME=${{secrets.DATABASE_USERNAME}} -e DATABASE_PASSWORD='${{secrets.DATABASE_PASSWORD}}' -e DATABASE_URL=${{secrets.DATABASE_URL}} --name iot-system diegoseven/iot-system
+              run: docker run --network host -d -p 8080:8080 -e MY_JWT_SECRET_KEY='${{secrets.MY_JWT_SECRET_KEY}}' -e DATABASE_USERNAME=${{secrets.DATABASE_USERNAME}} -e DATABASE_PASSWORD='${{secrets.DATABASE_PASSWORD}}' -e DATABASE_URL=${{secrets.DATABASE_URL}} --name iot-system diegoseven/iot-system
