@@ -4,15 +4,11 @@ import com.iot.system.dto.DeviceDTO;
 import com.iot.system.dto.UserDTO;
 import com.iot.system.model.Device;
 import com.iot.system.repository.DeviceRepository;
-import com.iot.system.repository.UserRepository;
 import com.iot.system.user.User;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
-import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Service
@@ -21,11 +17,14 @@ public class DeviceService {
     @Autowired
     private DeviceRepository deviceRepository;
 
-    @Autowired
-    private UserRepository userRepository;
+    private final UserService userService;
+
+    public DeviceService(UserService userService) {
+        this.userService = userService;
+    }
 
     public List<DeviceDTO> getAllDevices() {
-        User currentUser = getCurrentUser();
+        User currentUser = userService.getCurrentUser();
         List<Device> devices;
         if (currentUser.getRole().name().equals("ADMIN")) {
             devices = deviceRepository.findAll();
@@ -37,10 +36,10 @@ public class DeviceService {
                 .collect(Collectors.toList());
     }
 
-    public DeviceDTO getDeviceById(Long id) {
-        Device device = deviceRepository.findById(id).orElse(null);
+    public DeviceDTO getDeviceByDeviceCode(String deviceCode) {
+        Device device = deviceRepository.findByDeviceCode(deviceCode).orElse(null);
         if (device != null) {
-            User currentUser = getCurrentUser();
+            User currentUser = userService.getCurrentUser();
             if (device.getUser().getId().equals(currentUser.getId()) || currentUser.getRole().name().equals("ADMIN")) {
                 return convertToDeviceDTO(device);
             }
@@ -49,21 +48,23 @@ public class DeviceService {
     }
 
     public DeviceDTO saveDevice(Device device) {
-        User currentUser = getCurrentUser();
+        User currentUser = userService.getCurrentUser();
         device.setUser(currentUser);
+        device.setDeviceCode(generateDeviceCode());
         Device savedDevice = deviceRepository.save(device);
         return convertToDeviceDTO(savedDevice);
     }
 
-    public DeviceDTO updateDevice(Long id, Device deviceDetails) throws IllegalAccessException {
-        Device device = deviceRepository.findById(id).orElse(null);
+    public DeviceDTO updateDevice(String deviceCode, Device deviceDetails) throws IllegalAccessException {
+        Device device = deviceRepository.findByDeviceCode(deviceCode).orElse(null);
         if (device != null) {
-            User currentUser = getCurrentUser();
+            User currentUser = userService.getCurrentUser();
             if (!device.getUser().getId().equals(currentUser.getId()) && !currentUser.getRole().name().equals("ADMIN")) {
                 throw new IllegalAccessException("User not authorized to update this device");
             }
             device.setName(deviceDetails.getName());
             device.setDescription(deviceDetails.getDescription());
+            device.setStatus(deviceDetails.getStatus());
             Device updatedDevice = deviceRepository.save(device);
             return convertToDeviceDTO(updatedDevice);
         }
@@ -72,19 +73,13 @@ public class DeviceService {
 
     public void deleteDevice(Long id) throws IllegalAccessException {
         Device device = deviceRepository.findById(id).orElse(null);
-        User currentUser = getCurrentUser();
+        User currentUser = userService.getCurrentUser();
         if (device != null) {
             if (!device.getUser().getId().equals(currentUser.getId()) && !currentUser.getRole().name().equals("ADMIN")) {
                 throw new IllegalAccessException("User not authorized to delete this device");
             }
             deviceRepository.deleteById(id);
         }
-    }
-
-    private User getCurrentUser() {
-        UserDetails userDetails = (UserDetails) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-        Optional<User> userOptional = userRepository.findByEmail(userDetails.getUsername());
-        return userOptional.orElseThrow(() -> new IllegalStateException("User not found"));
     }
 
     private UserDTO convertToUserDTO(User user) {
@@ -101,6 +96,8 @@ public class DeviceService {
         deviceDTO.setId(device.getId());
         deviceDTO.setName(device.getName());
         deviceDTO.setDescription(device.getDescription());
+        deviceDTO.setStatus(device.getStatus());
+        deviceDTO.setDeviceCode(device.getDeviceCode());
 
         User user = device.getUser();
         if (user != null) {
@@ -109,5 +106,21 @@ public class DeviceService {
         }
 
         return deviceDTO;
+    }
+
+    private String generateDeviceCode() {
+        String lastDeviceCode = deviceRepository.findTopByOrderByCreatedAtDesc()
+                .map(Device::getDeviceCode)
+                .orElse("ABC0000");
+
+        int lastNumber = Integer.parseInt(lastDeviceCode.substring(3));
+        String newDeviceCode;
+
+        do {
+            lastNumber++;
+            newDeviceCode = "DVC" + String.format("%04d", lastNumber);
+        } while (deviceRepository.existsByDeviceCode(newDeviceCode));
+
+        return newDeviceCode;
     }
 }

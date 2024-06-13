@@ -27,11 +27,11 @@ public class DeviceController {
         return ResponseEntity.ok(deviceService.getAllDevices());
     }
 
-    @GetMapping("/{id}")
-    @Operation(summary = "Get a device by ID", description = "Retrieve a device by its ID")
+    @GetMapping("/{deviceCode}")
+    @Operation(summary = "Get a device by Device Code", description = "Retrieve a device by its Divice Code")
     @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
-    public ResponseEntity<DeviceDTO> getDeviceById(@PathVariable Long id) {
-        DeviceDTO device = deviceService.getDeviceById(id);
+    public ResponseEntity<DeviceDTO> getDeviceById(@PathVariable String deviceCode) {
+        DeviceDTO device = deviceService.getDeviceByDeviceCode(deviceCode);
         if (device != null) {
             return ResponseEntity.ok(device);
         } else {
@@ -46,11 +46,11 @@ public class DeviceController {
         return ResponseEntity.ok(deviceService.saveDevice(device));
     }
 
-    @PutMapping("/{id}")
+    @PutMapping("/{deviceCode}")
     @Operation(summary = "Update a device", description = "Update an existing device")
     @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
-    public ResponseEntity<DeviceDTO> updateDevice(@PathVariable Long id, @RequestBody Device device) throws IllegalAccessException {
-        DeviceDTO updatedDevice = deviceService.updateDevice(id, device);
+    public ResponseEntity<DeviceDTO> updateDevice(@PathVariable String deviceCode, @RequestBody Device device) throws IllegalAccessException {
+        DeviceDTO updatedDevice = deviceService.updateDevice(deviceCode, device);
         if (updatedDevice != null) {
             return ResponseEntity.ok(updatedDevice);
         } else {
