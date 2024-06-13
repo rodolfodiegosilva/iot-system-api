@@ -1,5 +1,6 @@
 package com.iot.system.service;
 
+import com.iot.system.exception.ResourceNotFoundException;
 import com.iot.system.repository.UserRepository;
 import com.iot.system.user.User;
 import lombok.RequiredArgsConstructor;
@@ -26,6 +27,6 @@ public class UserService {
         final String finalUsernameOrEmail = usernameOrEmail;
         return userRepository.findByUsername(finalUsernameOrEmail)
                 .or(() -> userRepository.findByEmail(finalUsernameOrEmail))
-                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
     }
 }

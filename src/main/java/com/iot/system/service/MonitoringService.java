@@ -7,6 +7,8 @@ import com.iot.system.model.Monitoring;
 import com.iot.system.repository.DeviceRepository;
 import com.iot.system.repository.MonitoringRepository;
 import com.iot.system.user.User;
+import com.iot.system.exception.ResourceNotFoundException;
+import com.iot.system.exception.UnauthorizedException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -27,7 +29,7 @@ public class MonitoringService {
         List<Monitoring> monitoringToAdd = new ArrayList<>();
         for (MonitoringRequest request : monitoringRequests) {
             final Device device = deviceRepository.findByDeviceCode(request.getDeviceCode())
-                    .orElseThrow(() -> new IllegalArgumentException("Device not found"));
+                    .orElseThrow(() -> new ResourceNotFoundException("Device not found"));
 
             Monitoring monitoring = new Monitoring();
             monitoring.setMonitoringCode(generateMonitoringCode());
@@ -44,10 +46,10 @@ public class MonitoringService {
 
     public Monitoring getMonitoringByCode(final String monitoringCode) {
         Monitoring monitoring = monitoringRepository.findByMonitoringCode(monitoringCode)
-                .orElseThrow(() -> new IllegalArgumentException("Monitoring not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Monitoring not found"));
         User currentUser = userService.getCurrentUser();
         if (!monitoring.getUser().getId().equals(currentUser.getId()) && !currentUser.getRole().name().equals("ADMIN")) {
-            throw new IllegalArgumentException("User not authorized to view this monitoring");
+            throw new UnauthorizedException("User not authorized to view this monitoring");
         }
         return monitoring;
     }
@@ -62,10 +64,10 @@ public class MonitoringService {
 
     public Monitoring updateMonitoring(final String monitoringCode, final MonitoringRequest monitoringRequest) {
         Monitoring monitoring = monitoringRepository.findByMonitoringCode(monitoringCode)
-                .orElseThrow(() -> new IllegalArgumentException("Monitoring not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Monitoring not found"));
         final User currentUser = userService.getCurrentUser();
         if (!monitoring.getUser().getId().equals(currentUser.getId()) && !currentUser.getRole().name().equals("ADMIN")) {
-            throw new IllegalArgumentException("User not authorized to update this monitoring");
+            throw new UnauthorizedException("User not authorized to update this monitoring");
         }
         if (!monitoring.getDevice().getDeviceCode().equals(monitoringRequest.getDeviceCode())) {
             final Device device = deviceRepository.findByDeviceCode(monitoringRequest.getDeviceCode()).orElse(null);
@@ -77,10 +79,10 @@ public class MonitoringService {
 
     public void deleteMonitoring(final String monitoringCode) {
         Monitoring monitoring = monitoringRepository.findByMonitoringCode(monitoringCode)
-                .orElseThrow(() -> new IllegalArgumentException("Monitoring not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Monitoring not found"));
         final User currentUser = userService.getCurrentUser();
         if (!monitoring.getUser().getId().equals(currentUser.getId()) && !currentUser.getRole().name().equals("ADMIN")) {
-            throw new IllegalArgumentException("User not authorized to delete this monitoring");
+            throw new UnauthorizedException("User not authorized to delete this monitoring");
         }
         monitoringRepository.deleteByMonitoringCode(monitoringCode);
     }
@@ -90,6 +92,7 @@ public class MonitoringService {
             deleteMonitoring(monitoringCode);
         }
     }
+
 
     private String generateMonitoringCode() {
         String lastMonitoringCode = monitoringRepository.findTopByOrderByCreatedAtDesc()

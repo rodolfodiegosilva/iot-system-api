@@ -2,6 +2,8 @@ package com.iot.system.service;
 
 import com.iot.system.dto.DeviceDTO;
 import com.iot.system.dto.UserDTO;
+import com.iot.system.exception.ResourceNotFoundException;
+import com.iot.system.exception.UnauthorizedException;
 import com.iot.system.model.Device;
 import com.iot.system.repository.DeviceRepository;
 import com.iot.system.user.User;
@@ -37,14 +39,13 @@ public class DeviceService {
     }
 
     public DeviceDTO getDeviceByDeviceCode(String deviceCode) {
-        Device device = deviceRepository.findByDeviceCode(deviceCode).orElse(null);
-        if (device != null) {
-            User currentUser = userService.getCurrentUser();
-            if (device.getUser().getId().equals(currentUser.getId()) || currentUser.getRole().name().equals("ADMIN")) {
-                return convertToDeviceDTO(device);
-            }
+        Device device = deviceRepository.findByDeviceCode(deviceCode)
+                .orElseThrow(() -> new ResourceNotFoundException("Device not found"));
+        User currentUser = userService.getCurrentUser();
+        if (!device.getUser().getId().equals(currentUser.getId()) && !currentUser.getRole().name().equals("ADMIN")) {
+            throw new UnauthorizedException("User not authorized to view this device");
         }
-        return null;
+        return convertToDeviceDTO(device);
     }
 
     public DeviceDTO saveDevice(Device device) {
@@ -55,31 +56,28 @@ public class DeviceService {
         return convertToDeviceDTO(savedDevice);
     }
 
-    public DeviceDTO updateDevice(String deviceCode, Device deviceDetails) throws IllegalAccessException {
-        Device device = deviceRepository.findByDeviceCode(deviceCode).orElse(null);
-        if (device != null) {
-            User currentUser = userService.getCurrentUser();
-            if (!device.getUser().getId().equals(currentUser.getId()) && !currentUser.getRole().name().equals("ADMIN")) {
-                throw new IllegalAccessException("User not authorized to update this device");
-            }
-            device.setName(deviceDetails.getName());
-            device.setDescription(deviceDetails.getDescription());
-            device.setStatus(deviceDetails.getStatus());
-            Device updatedDevice = deviceRepository.save(device);
-            return convertToDeviceDTO(updatedDevice);
+    public DeviceDTO updateDevice(String deviceCode, Device deviceDetails) {
+        Device device = deviceRepository.findByDeviceCode(deviceCode)
+                .orElseThrow(() -> new ResourceNotFoundException("Device not found"));
+        User currentUser = userService.getCurrentUser();
+        if (!device.getUser().getId().equals(currentUser.getId()) && !currentUser.getRole().name().equals("ADMIN")) {
+            throw new UnauthorizedException("User not authorized to update this device");
         }
-        return null;
+        device.setName(deviceDetails.getName());
+        device.setDescription(deviceDetails.getDescription());
+        device.setStatus(deviceDetails.getStatus());
+        Device updatedDevice = deviceRepository.save(device);
+        return convertToDeviceDTO(updatedDevice);
     }
 
-    public void deleteDevice(Long id) throws IllegalAccessException {
-        Device device = deviceRepository.findById(id).orElse(null);
+    public void deleteDevice(Long id) {
+        Device device = deviceRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Device not found"));
         User currentUser = userService.getCurrentUser();
-        if (device != null) {
-            if (!device.getUser().getId().equals(currentUser.getId()) && !currentUser.getRole().name().equals("ADMIN")) {
-                throw new IllegalAccessException("User not authorized to delete this device");
-            }
-            deviceRepository.deleteById(id);
+        if (!device.getUser().getId().equals(currentUser.getId()) && !currentUser.getRole().name().equals("ADMIN")) {
+            throw new UnauthorizedException("User not authorized to delete this device");
         }
+        deviceRepository.deleteById(id);
     }
 
     private UserDTO convertToUserDTO(User user) {

@@ -1,5 +1,6 @@
-package com.iot.system.config;
+ package com.iot.system.config;
 
+import com.iot.system.repository.BlacklistedTokenRepository;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -21,6 +22,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtService jwtService;
     private final UserDetailsService userDetailsService;
+    private final BlacklistedTokenRepository blacklistedTokenRepository;
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
@@ -35,6 +37,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         }
 
         jwtToken = authHeader.substring(7);
+
+        // Verifique se o token está na blacklist
+        if (blacklistedTokenRepository.findByToken(jwtToken).isPresent()) {
+            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+            return;
+        }
+
         userIdentifier = jwtService.extractUsername(jwtToken);
 
         if (userIdentifier != null && SecurityContextHolder.getContext().getAuthentication() == null) {
