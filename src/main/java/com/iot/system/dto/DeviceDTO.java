@@ -8,4 +8,6 @@ public class DeviceDTO {
     private String name;
     private String description;
     private UserDTO user;
+    private String deviceCode;
+    private String status;
 }
