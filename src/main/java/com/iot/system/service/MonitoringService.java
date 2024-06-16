@@ -2,14 +2,19 @@
 package com.iot.system.service;
 
 import com.iot.system.dto.MonitoringRequest;
+import com.iot.system.exception.ResourceNotFoundException;
+import com.iot.system.exception.UnauthorizedException;
 import com.iot.system.model.Device;
 import com.iot.system.model.Monitoring;
+import com.iot.system.dto.MonitoringResponse;
 import com.iot.system.repository.DeviceRepository;
 import com.iot.system.repository.MonitoringRepository;
 import com.iot.system.user.User;
-import com.iot.system.exception.ResourceNotFoundException;
-import com.iot.system.exception.UnauthorizedException;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -54,12 +59,26 @@ public class MonitoringService {
         return monitoring;
     }
 
-    public List<Monitoring> getAllMonitoring() {
+    public MonitoringResponse getAllMonitoring(int pageNo, int pageSize, String sortBy, String sortDir) {
+        Pageable pageable = PageRequest.of(pageNo, pageSize,
+                sortDir.equalsIgnoreCase(Sort.Direction.ASC.name()) ? Sort.by(sortBy).ascending() : Sort.by(sortBy).descending());
         final User currentUser = userService.getCurrentUser();
+        Page<Monitoring> monitorings;
         if (currentUser.getRole().name().equals("ADMIN")) {
-            return monitoringRepository.findAll();
+            monitorings = monitoringRepository.findAll(pageable);
+        } else {
+            monitorings = monitoringRepository.findByUserId(currentUser.getId(), pageable);
         }
-        return monitoringRepository.findByUserId(currentUser.getId());
+        List<Monitoring> content = monitorings.getContent();
+
+        return MonitoringResponse.builder()
+                .content(content)
+                .pageNo(monitorings.getNumber())
+                .pageSize(monitorings.getSize())
+                .totalElements(monitorings.getTotalElements())
+                .totalPages(monitorings.getTotalPages())
+                .last(monitorings.isLast())
+                .build();
     }
 
     public Monitoring updateMonitoring(final String monitoringCode, final MonitoringRequest monitoringRequest) {
