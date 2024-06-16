@@ -81,12 +81,12 @@ public class DeviceService {
     }
 
     private UserDTO convertToUserDTO(User user) {
-        UserDTO userDTO = new UserDTO();
-        userDTO.setId(user.getId());
-        userDTO.setName(user.getName());
-        userDTO.setEmail(user.getEmail());
-        userDTO.setRole(user.getRole().name());
-        return userDTO;
+        return UserDTO.builder()
+                .id(user.getId())
+                .name(user.getName())
+                .email(user.getEmail())
+                .role(user.getRole().toString()).build();
+
     }
 
     private DeviceDTO convertToDeviceDTO(Device device) {

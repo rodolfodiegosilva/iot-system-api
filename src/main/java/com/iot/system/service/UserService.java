@@ -1,5 +1,6 @@
 package com.iot.system.service;
 
+import com.iot.system.dto.UserDTO;
 import com.iot.system.exception.ResourceNotFoundException;
 import com.iot.system.repository.UserRepository;
 import com.iot.system.user.User;
@@ -28,5 +29,15 @@ public class UserService {
         return userRepository.findByUsername(finalUsernameOrEmail)
                 .or(() -> userRepository.findByEmail(finalUsernameOrEmail))
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+    }
+
+    public UserDTO getUser() {
+        final User user = getCurrentUser();
+        return UserDTO.builder()
+                .id(user.getId())
+                .email(user.getEmail())
+                .role(user.getRole().toString())
+                .name(user.getName())
+                .build();
     }
 }
