@@ -9,16 +9,18 @@ import com.iot.system.user.Role;
 import com.iot.system.user.User;
 import jakarta.servlet.http.*;
 import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.authentication.logout.SecurityContextLogoutHandler;
 import org.springframework.stereotype.Service;
 
-
 @Service
 @RequiredArgsConstructor
 public class AuthenticationService {
 
+    private static final Logger logger = LoggerFactory.getLogger(AuthenticationService.class);
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
@@ -33,6 +35,7 @@ public class AuthenticationService {
         user.setRole(Role.USER);
         userRepository.save(user);
         String token = jwtService.generateToken(user);
+        logger.info("User registered with username: {}", user.getUsername());
         return new AuthenticationResponse(token);
     }
 
@@ -41,20 +44,22 @@ public class AuthenticationService {
                 .or(() -> userRepository.findByUsername(request.getUsername()))
                 .orElseThrow(() -> new IllegalArgumentException("Invalid email or username or password"));
         if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
+            logger.warn("Invalid password for user: {}", user.getUsername());
             throw new IllegalArgumentException("Invalid email or username or password");
         }
         String token = jwtService.generateToken(user);
+        logger.info("User logged in with username: {}", user.getUsername());
         return new AuthenticationResponse(token);
     }
 
     public void logout(HttpServletRequest request, HttpServletResponse response) {
-        System.out.println("--------------------------------------------------------------");
         String authHeader = request.getHeader("Authorization");
         if (authHeader != null && authHeader.startsWith("Bearer ")) {
             String token = authHeader.substring(7);
             BlacklistedToken blacklistedToken = new BlacklistedToken();
             blacklistedToken.setToken(token);
             blacklistedTokenRepository.save(blacklistedToken);
+            logger.info("User logged out and token blacklisted");
         }
         SecurityContextHolder.clearContext();
         new SecurityContextLogoutHandler().logout(request, response, SecurityContextHolder.getContext().getAuthentication());
