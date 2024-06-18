@@ -2,6 +2,7 @@ package com.iot.system.controller;
 
 import com.iot.system.dto.MonitoringRequest;
 import com.iot.system.model.Monitoring;
+import com.iot.system.dto.MonitoringResponse;
 import com.iot.system.service.MonitoringService;
 import io.swagger.v3.oas.annotations.Operation;
 import lombok.RequiredArgsConstructor;
@@ -35,8 +36,12 @@ public class MonitoringController {
     @GetMapping
     @Operation(summary = "Get all Monitoring", description = "Get all Register Monitoring")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<List<Monitoring>> getAllMonitoring() {
-        return ResponseEntity.ok(monitoringService.getAllMonitoring());
+    public ResponseEntity<MonitoringResponse> getAllMonitoring(
+            @RequestParam(value = "pageNo", defaultValue = "0", required = false) int pageNo,
+            @RequestParam(value = "pageSize", defaultValue = "10", required = false) int pageSize,
+            @RequestParam(value = "sortBy", defaultValue = "id", required = false) String sortBy,
+            @RequestParam(value = "sortDir", defaultValue = "asc", required = false) String sortDir) {
+        return ResponseEntity.ok(monitoringService.getAllMonitoring(pageNo, pageSize, sortBy, sortDir));
     }
 
     @PutMapping("/{monitoringCode}")

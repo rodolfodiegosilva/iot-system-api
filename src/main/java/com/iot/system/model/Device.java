@@ -19,6 +19,7 @@ public class Device {
     private String name;
     private String description;
     private String status;
+    private String industryType;
 
     @Column(unique = true)
     private String deviceCode;
