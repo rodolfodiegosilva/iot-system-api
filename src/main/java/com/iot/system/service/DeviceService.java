@@ -1,6 +1,7 @@
 package com.iot.system.service;
 
 import com.iot.system.dto.DeviceDTO;
+import com.iot.system.dto.DeviceResponse;
 import com.iot.system.dto.UserDTO;
 import com.iot.system.exception.ResourceNotFoundException;
 import com.iot.system.exception.UnauthorizedException;
@@ -8,10 +9,13 @@ import com.iot.system.model.Device;
 import com.iot.system.repository.DeviceRepository;
 import com.iot.system.user.User;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Service
 public class DeviceService {
@@ -25,17 +29,19 @@ public class DeviceService {
         this.userService = userService;
     }
 
-    public List<DeviceDTO> getAllDevices() {
-        User currentUser = userService.getCurrentUser();
-        List<Device> devices;
-        if (currentUser.getRole().name().equals("ADMIN")) {
-            devices = deviceRepository.findAll();
-        } else {
-            devices = deviceRepository.findByUserId(currentUser.getId());
-        }
-        return devices.stream()
-                .map(this::convertToDeviceDTO)
-                .collect(Collectors.toList());
+    public DeviceResponse getAllDevices(int pageNo, int pageSize, String sortBy, String sortDir) {
+        Pageable pageable = PageRequest.of(pageNo, pageSize, Sort.by(Sort.Direction.fromString(sortDir), sortBy));
+        Page<Device> devices = deviceRepository.findAll(pageable);
+        List<Device> content = devices.getContent();
+
+        return DeviceResponse.builder()
+                .content(content)
+                .pageNo(devices.getNumber())
+                .pageSize(devices.getSize())
+                .totalElements(devices.getTotalElements())
+                .totalPages(devices.getTotalPages())
+                .last(devices.isLast())
+                .build();
     }
 
     public DeviceDTO getDeviceByDeviceCode(String deviceCode) {
