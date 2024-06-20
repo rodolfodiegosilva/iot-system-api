@@ -1,5 +1,5 @@
 
-        package com.iot.system.auth;
+package com.iot.system.auth;
 
 import com.iot.system.config.JwtService;
 import com.iot.system.model.BlacklistedToken;
@@ -62,6 +62,7 @@ public class AuthenticationService {
             logger.info("User logged out and token blacklisted");
         }
         SecurityContextHolder.clearContext();
-        new SecurityContextLogoutHandler().logout(request, response, SecurityContextHolder.getContext().getAuthentication());
+        new SecurityContextLogoutHandler().logout(request, response,
+                SecurityContextHolder.getContext().getAuthentication());
     }
 }
