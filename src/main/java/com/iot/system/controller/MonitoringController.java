@@ -1,8 +1,9 @@
 package com.iot.system.controller;
 
 import com.iot.system.dto.MonitoringRequest;
-import com.iot.system.model.Monitoring;
 import com.iot.system.dto.MonitoringResponse;
+import com.iot.system.model.Monitoring;
+import com.iot.system.model.MonitoringStatus;
 import com.iot.system.service.MonitoringService;
 import io.swagger.v3.oas.annotations.Operation;
 import lombok.RequiredArgsConstructor;
@@ -34,14 +35,22 @@ public class MonitoringController {
     }
 
     @GetMapping
-    @Operation(summary = "Get all Monitoring", description = "Get all Register Monitoring")
+    @Operation(summary = "Get all Monitoring", description = "Get all Register Monitoring with pagination and filtering")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<MonitoringResponse> getAllMonitoring(
             @RequestParam(value = "pageNo", defaultValue = "0", required = false) int pageNo,
             @RequestParam(value = "pageSize", defaultValue = "10", required = false) int pageSize,
             @RequestParam(value = "sortBy", defaultValue = "id", required = false) String sortBy,
-            @RequestParam(value = "sortDir", defaultValue = "asc", required = false) String sortDir) {
-        return ResponseEntity.ok(monitoringService.getAllMonitoring(pageNo, pageSize, sortBy, sortDir));
+            @RequestParam(value = "sortDir", defaultValue = "asc", required = false) String sortDir,
+            @RequestParam(value = "status", required = false) MonitoringStatus status,
+            @RequestParam(value = "deviceCode", required = false) String deviceCode,
+            @RequestParam(value = "monitoringCode", required = false) String monitoringCode,
+            @RequestParam(value = "userName", required = false) String userName,
+            @RequestParam(value = "deviceName", required = false) String deviceName,
+            @RequestParam(value = "createdAt", required = false) String createdAt,
+            @RequestParam(value = "updatedAt", required = false) String updatedAt
+    ) {
+        return ResponseEntity.ok(monitoringService.getAllMonitoring(pageNo, pageSize, sortBy, sortDir, status, deviceCode, monitoringCode, userName, deviceName, createdAt, updatedAt));
     }
 
     @PutMapping("/{monitoringCode}")
