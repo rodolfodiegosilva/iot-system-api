@@ -1,5 +1,5 @@
 package com.iot.system.dto;
-import com.iot.system.model.DeviceStatus;
+
 import com.iot.system.model.MonitoringStatus;
 import lombok.Data;
 
