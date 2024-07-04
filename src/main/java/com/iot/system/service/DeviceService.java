@@ -45,6 +45,14 @@ public class DeviceService {
         this.userService = userService;
     }
 
+    public List<Device> getAllDevices() {
+        final User currentUser = userService.getCurrentUser();
+        if (currentUser.getRole().name().equals("ADMIN")) {
+            return deviceRepository.findAll();
+        }
+        return deviceRepository.findByUserId(currentUser.getId());
+    }
+
     public DeviceResponse getAllDevices(int pageNo, int pageSize, String sortBy, String sortDir, String status, String industryType, String deviceName, String userName, String description, String deviceCode) {
         Pageable pageable = PageRequest.of(pageNo, pageSize, Sort.by(Sort.Direction.fromString(sortDir), sortBy));
         final User currentUser = userService.getCurrentUser();
