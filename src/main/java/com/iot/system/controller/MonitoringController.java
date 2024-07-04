@@ -34,7 +34,7 @@ public class MonitoringController {
         return ResponseEntity.ok(monitoringService.getMonitoringByCode(monitoringCode));
     }
 
-    @GetMapping
+    @GetMapping("/pageable")
     @Operation(summary = "Get all Monitoring", description = "Get all Register Monitoring with pagination and filtering")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<MonitoringResponse> getAllMonitoring(

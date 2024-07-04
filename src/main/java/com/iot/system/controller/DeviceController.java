@@ -12,6 +12,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 @RestController
 @RequestMapping("/devices")
 @RequiredArgsConstructor
@@ -21,7 +23,14 @@ public class DeviceController {
     private final DeviceService deviceService;
 
     @GetMapping
-    @Operation(summary = "Get all devices", description = "Retrieve a list of all devices with pagination and filtering")
+    @Operation(summary = "Get all devices", description = "Retrieve a list of all devices")
+    @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
+    public List<Device> getAllDevices() {
+        return deviceService.getAllDevices();
+    }
+
+    @GetMapping("/pageable")
+    @Operation(summary = "Get all devices pagination", description = "Retrieve a list of all devices with pagination and filtering")
     @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
     public ResponseEntity<DeviceResponse> getAllDevices(
             @RequestParam(value = "pageNo", defaultValue = "0", required = false) int pageNo,
