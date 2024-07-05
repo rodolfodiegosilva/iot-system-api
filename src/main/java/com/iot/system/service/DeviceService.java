@@ -193,7 +193,7 @@ public class DeviceService {
     private String generateDeviceCode() {
         String lastDeviceCode = deviceRepository.findTopByOrderByCreatedAtDesc()
                 .map(Device::getDeviceCode)
-                .orElse("ABC0000");
+                .orElse("DVC00000");
 
         int lastNumber = Integer.parseInt(lastDeviceCode.substring(3));
         String newDeviceCode;

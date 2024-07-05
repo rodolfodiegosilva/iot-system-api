@@ -7,4 +7,5 @@ import lombok.Data;
 public class MonitoringRequest {
     private String deviceCode;
     private MonitoringStatus status;
+    private String description;
 }

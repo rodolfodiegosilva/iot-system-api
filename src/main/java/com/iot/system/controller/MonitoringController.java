@@ -2,6 +2,7 @@ package com.iot.system.controller;
 
 import com.iot.system.dto.MonitoringRequest;
 import com.iot.system.dto.MonitoringResponse;
+import com.iot.system.model.Device;
 import com.iot.system.model.Monitoring;
 import com.iot.system.model.MonitoringStatus;
 import com.iot.system.service.MonitoringService;
@@ -19,6 +20,13 @@ import java.util.List;
 public class MonitoringController {
 
     private final MonitoringService monitoringService;
+
+    @GetMapping
+    @Operation(summary = "Get all monitorings", description = "Retrieve a list of all monitorings")
+    @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
+    public List<Monitoring> getAllDevices() {
+        return monitoringService.getAllMonitorings();
+    }
 
     @PostMapping
     @Operation(summary = "Add a new monitoring", description = "Add a new monitoring to the system")
