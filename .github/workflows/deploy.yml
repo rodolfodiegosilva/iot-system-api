@@ -36,9 +36,17 @@ jobs:
         needs: build
         runs-on: self-hosted
         steps:
+            - name: Ensure Docker is running and has permissions
+              run: |
+                sudo systemctl start docker
+                sudo usermod -aG docker $(whoami)
+                newgrp docker
             - name: Pull image from docker hub
-              run: docker pull diegoseven/iot-system:latest
+              run: sudo docker pull diegoseven/iot-system:latest
             - name: Remove docker container
-              run: docker rm -f iot-system
+              run: |
+                if [ "$(sudo docker ps -a -q -f name=iot-system)" ]; then
+                  sudo docker rm -f iot-system
+                fi
             - name: Run docker container
-              run: docker run --network host -d -p 8080:8080 -e MY_JWT_SECRET_KEY='${{secrets.MY_JWT_SECRET_KEY}}' -e DATABASE_USERNAME=${{secrets.DATABASE_USERNAME}} -e DATABASE_PASSWORD='${{secrets.DATABASE_PASSWORD}}' -e DATABASE_URL=${{secrets.DATABASE_URL}} --name iot-system diegoseven/iot-system
+              run: sudo docker run --network host -d -p 8080:8080 -e MY_JWT_SECRET_KEY='${{secrets.MY_JWT_SECRET_KEY}}' -e DATABASE_USERNAME=${{secrets.DATABASE_USERNAME}} -e DATABASE_PASSWORD='${{secrets.DATABASE_PASSWORD}}' -e DATABASE_URL=${{secrets.DATABASE_URL}} --name iot-system diegoseven/iot-system

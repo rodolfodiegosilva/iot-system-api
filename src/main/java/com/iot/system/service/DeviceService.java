@@ -53,7 +53,8 @@ public class DeviceService {
         return deviceRepository.findByUserId(currentUser.getId());
     }
 
-    public DeviceResponse getAllDevices(int pageNo, int pageSize, String sortBy, String sortDir, String status, String industryType, String deviceName, String userName, String description, String deviceCode) {
+    public DeviceResponse getAllDevices(int pageNo, int pageSize, String sortBy, String sortDir, String status,
+            String industryType, String deviceName, String userName, String description, String deviceCode) {
         Pageable pageable = PageRequest.of(pageNo, pageSize, Sort.by(Sort.Direction.fromString(sortDir), sortBy));
         final User currentUser = userService.getCurrentUser();
 
@@ -121,13 +122,15 @@ public class DeviceService {
         deviceRepository.deleteById(id);
     }
 
-    public MonitoringResponse getMonitoringsByDeviceCode(String deviceCode, int pageNo, int pageSize, String sortBy, String sortDir,
-                                                         MonitoringStatus status, String monitoringCode, String userName, String deviceName,
-                                                         String createdAt, String updatedAt) {
+    public MonitoringResponse getMonitoringsByDeviceCode(String deviceCode, int pageNo, int pageSize, String sortBy,
+            String sortDir,
+            MonitoringStatus status, String monitoringCode, String userName, String deviceName,
+            String createdAt, String updatedAt) {
         logger.info("Fetching monitorings for deviceCode: {}", deviceCode);
 
         Pageable pageable = PageRequest.of(pageNo, pageSize,
-                sortDir.equalsIgnoreCase(Sort.Direction.ASC.name()) ? Sort.by(sortBy).ascending() : Sort.by(sortBy).descending());
+                sortDir.equalsIgnoreCase(Sort.Direction.ASC.name()) ? Sort.by(sortBy).ascending()
+                        : Sort.by(sortBy).descending());
         final User currentUser = userService.getCurrentUser();
 
         LocalDateTime[] createdAtRange = parseDateRange(createdAt);
@@ -187,7 +190,7 @@ public class DeviceService {
                 logger.error("Error parsing date range: {}", dateRange, e);
             }
         }
-        return new LocalDateTime[]{start, end};
+        return new LocalDateTime[] { start, end };
     }
 
     private String generateDeviceCode() {
