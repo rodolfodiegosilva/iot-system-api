@@ -19,6 +19,9 @@ public class Monitoring {
     @Column(unique = true, nullable = false)
     private String monitoringCode;
 
+    @Column(nullable = false)
+    private String description;
+
     @ManyToOne
     @JoinColumn(name = "user_id", nullable = false)
     private User user;

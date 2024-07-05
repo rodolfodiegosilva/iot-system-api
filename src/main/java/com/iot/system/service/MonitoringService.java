@@ -1,4 +1,3 @@
-
 package com.iot.system.service;
 
 import com.iot.system.dto.MonitoringRequest;
@@ -12,6 +11,7 @@ import com.iot.system.repository.DeviceRepository;
 import com.iot.system.repository.MonitoringRepository;
 import com.iot.system.repository.MonitoringSpecification;
 import com.iot.system.user.User;
+import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -35,18 +35,39 @@ public class MonitoringService {
     private final DeviceRepository deviceRepository;
     private final UserService userService;
 
-    public List<Monitoring> createMonitoring(final List<MonitoringRequest> monitoringRequests) {
+    public List<Monitoring> getAllMonitorings() {
+        final User currentUser = userService.getCurrentUser();
+        if (currentUser.getRole().name().equals("ADMIN")) {
+            return monitoringRepository.findAll();
+        }
+        return monitoringRepository.findByUserId(currentUser.getId());
+    }
 
-        List<Monitoring> monitoringToAdd = new ArrayList<>();
-        for (MonitoringRequest request : monitoringRequests) {
+    public List<Monitoring> createMonitoring(final List<MonitoringRequest> monitoringRequests) {
+        final List<Monitoring> monitoringToAdd = new ArrayList<>();
+
+        final String lastMonitoringCode = monitoringRepository.findTopByOrderByCreatedAtDesc()
+                .map(Monitoring::getMonitoringCode)
+                .orElse("MON00000");
+        int lastNumber = Integer.parseInt(lastMonitoringCode.substring(3));
+
+        for (final MonitoringRequest request : monitoringRequests) {
             final Device device = deviceRepository.findByDeviceCode(request.getDeviceCode())
                     .orElseThrow(() -> new ResourceNotFoundException("Device not found"));
 
-            Monitoring monitoring = new Monitoring();
-            monitoring.setMonitoringCode(generateMonitoringCode());
+            if (request.getDescription() == null || request.getDescription().isEmpty()) {
+                throw new IllegalArgumentException("Description cannot be null or empty");
+            }
+
+            final String newMonitoringCode = generateMonitoringCode(lastNumber);
+            lastNumber = Integer.parseInt(newMonitoringCode.substring(3));
+
+            final Monitoring monitoring = new Monitoring();
+            monitoring.setMonitoringCode(newMonitoringCode);
             monitoring.setUser(userService.getCurrentUser());
             monitoring.setDevice(device);
             monitoring.setStatus(request.getStatus());
+            monitoring.setDescription(request.getDescription());
             monitoring.setCreatedAt(LocalDateTime.now());
             monitoring.setUpdatedAt(LocalDateTime.now());
             monitoringToAdd.add(monitoring);
@@ -56,24 +77,24 @@ public class MonitoringService {
     }
 
     public Monitoring getMonitoringByCode(final String monitoringCode) {
-        Monitoring monitoring = monitoringRepository.findByMonitoringCode(monitoringCode)
+        final Monitoring monitoring = monitoringRepository.findByMonitoringCode(monitoringCode)
                 .orElseThrow(() -> new ResourceNotFoundException("Monitoring not found"));
-        User currentUser = userService.getCurrentUser();
+        final User currentUser = userService.getCurrentUser();
         if (!monitoring.getUser().getId().equals(currentUser.getId()) && !currentUser.getRole().name().equals("ADMIN")) {
             throw new UnauthorizedException("User not authorized to view this monitoring");
         }
         return monitoring;
     }
 
-    public MonitoringResponse getAllMonitoring(int pageNo, int pageSize, String sortBy, String sortDir,
-                                               MonitoringStatus status, String deviceCode, String monitoringCode,
-                                               String userName, String deviceName, String createdAt, String updatedAt) {
-        Pageable pageable = PageRequest.of(pageNo, pageSize,
+    public MonitoringResponse getAllMonitoring(final int pageNo, final int pageSize, final String sortBy, final String sortDir,
+                                               final MonitoringStatus status, final String deviceCode, final String monitoringCode,
+                                               final String userName, final String deviceName, final String createdAt, final String updatedAt) {
+        final Pageable pageable = PageRequest.of(pageNo, pageSize,
                 sortDir.equalsIgnoreCase(Sort.Direction.ASC.name()) ? Sort.by(sortBy).ascending() : Sort.by(sortBy).descending());
         final User currentUser = userService.getCurrentUser();
 
-        LocalDateTime[] createdAtRange = parseDateRange(createdAt);
-        LocalDateTime[] updatedAtRange = parseDateRange(updatedAt);
+        final LocalDateTime[] createdAtRange = parseDateRange(createdAt);
+        final LocalDateTime[] updatedAtRange = parseDateRange(updatedAt);
 
         Specification<Monitoring> spec = Specification.where(MonitoringSpecification.hasStatus(status))
                 .and(MonitoringSpecification.hasDeviceCode(deviceCode))
@@ -88,9 +109,8 @@ public class MonitoringService {
             spec = spec.and(MonitoringSpecification.hasUserId(currentUser.getId()));
         }
 
-        Page<Monitoring> monitorings;
-        monitorings = monitoringRepository.findAll(spec, pageable);
-        List<Monitoring> content = monitorings.getContent();
+        final Page<Monitoring> monitorings = monitoringRepository.findAll(spec, pageable);
+        final List<Monitoring> content = monitorings.getContent();
 
         return MonitoringResponse.builder()
                 .content(content)
@@ -102,22 +122,22 @@ public class MonitoringService {
                 .build();
     }
 
-    private LocalDateTime[] parseDateRange(String dateRange) {
-        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("MM/dd/yyyy");
+    private LocalDateTime[] parseDateRange(final String dateRange) {
+        final DateTimeFormatter formatter = DateTimeFormatter.ofPattern("MM/dd/yyyy");
         LocalDateTime start = null;
         LocalDateTime end = null;
 
         if (dateRange != null && !dateRange.isEmpty()) {
             try {
                 if (dateRange.contains("-")) {
-                    String[] dates = dateRange.split("-");
+                    final String[] dates = dateRange.split("-");
                     start = LocalDate.parse(dates[0].trim(), formatter).atStartOfDay();
                     end = LocalDate.parse(dates[1].trim(), formatter).atTime(23, 59, 59);
                 } else {
                     start = LocalDate.parse(dateRange.trim(), formatter).atStartOfDay();
                     end = start.withHour(23).withMinute(59).withSecond(59);
                 }
-            } catch (DateTimeParseException e) {
+            } catch (final DateTimeParseException e) {
                 // Handle the exception as needed
             }
         }
@@ -125,7 +145,7 @@ public class MonitoringService {
     }
 
     public Monitoring updateMonitoring(final String monitoringCode, final MonitoringRequest monitoringRequest) {
-        Monitoring monitoring = monitoringRepository.findByMonitoringCode(monitoringCode)
+        final Monitoring monitoring = monitoringRepository.findByMonitoringCode(monitoringCode)
                 .orElseThrow(() -> new ResourceNotFoundException("Monitoring not found"));
         final User currentUser = userService.getCurrentUser();
         if (!monitoring.getUser().getId().equals(currentUser.getId()) && !currentUser.getRole().name().equals("ADMIN")) {
@@ -140,7 +160,7 @@ public class MonitoringService {
     }
 
     public void deleteMonitoring(final String monitoringCode) {
-        Monitoring monitoring = monitoringRepository.findByMonitoringCode(monitoringCode)
+        final Monitoring monitoring = monitoringRepository.findByMonitoringCode(monitoringCode)
                 .orElseThrow(() -> new ResourceNotFoundException("Monitoring not found"));
         final User currentUser = userService.getCurrentUser();
         if (!monitoring.getUser().getId().equals(currentUser.getId()) && !currentUser.getRole().name().equals("ADMIN")) {
@@ -150,24 +170,21 @@ public class MonitoringService {
     }
 
     public void deleteMultipleMonitoring(final List<String> monitoringCodes) {
-        for (String monitoringCode : monitoringCodes) {
+        for (final String monitoringCode : monitoringCodes) {
             deleteMonitoring(monitoringCode);
         }
     }
 
-
-    private String generateMonitoringCode() {
-        String lastMonitoringCode = monitoringRepository.findTopByOrderByCreatedAtDesc()
-                .map(Monitoring::getMonitoringCode)
-                .orElse("MT0000");
-
-        int lastNumber = Integer.parseInt(lastMonitoringCode.substring(2));
+    @Transactional
+    public String generateMonitoringCode(int lastNumber) {
         String newMonitoringCode;
+        boolean exists;
 
         do {
             lastNumber++;
-            newMonitoringCode = "MT" + String.format("%04d", lastNumber);
-        } while (monitoringRepository.existsByMonitoringCode(newMonitoringCode));
+            newMonitoringCode = "MON" + String.format("%05d", lastNumber);
+            exists = monitoringRepository.existsByMonitoringCode(newMonitoringCode);
+        } while (exists);
 
         return newMonitoringCode;
     }
