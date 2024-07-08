@@ -7,7 +7,7 @@ import com.iot.system.exception.UnauthorizedException;
 import com.iot.system.model.Device;
 import com.iot.system.model.Monitoring;
 import com.iot.system.model.MonitoringStatus;
-import com.iot.system.repository.DeviceRepository;
+import com.iot.system.repository.DevicesRepository;
 import com.iot.system.repository.MonitoringRepository;
 import com.iot.system.repository.MonitoringSpecification;
 import com.iot.system.user.User;
@@ -32,7 +32,7 @@ import java.util.List;
 public class MonitoringService {
 
     private final MonitoringRepository monitoringRepository;
-    private final DeviceRepository deviceRepository;
+    private final DevicesRepository devicesRepository;
     private final UserService userService;
 
     public List<Monitoring> getAllMonitorings() {
@@ -52,7 +52,7 @@ public class MonitoringService {
         int lastNumber = Integer.parseInt(lastMonitoringCode.substring(3));
 
         for (final MonitoringRequest request : monitoringRequests) {
-            final Device device = deviceRepository.findByDeviceCode(request.getDeviceCode())
+            final Device device = devicesRepository.findByDeviceCode(request.getDeviceCode())
                     .orElseThrow(() -> new ResourceNotFoundException("Device not found"));
 
             if (request.getDescription() == null || request.getDescription().isEmpty()) {
@@ -152,7 +152,7 @@ public class MonitoringService {
             throw new UnauthorizedException("User not authorized to update this monitoring");
         }
         if (!monitoring.getDevice().getDeviceCode().equals(monitoringRequest.getDeviceCode())) {
-            final Device device = deviceRepository.findByDeviceCode(monitoringRequest.getDeviceCode()).orElse(null);
+            final Device device = devicesRepository.findByDeviceCode(monitoringRequest.getDeviceCode()).orElse(null);
             monitoring.setDevice(device);
         }
         monitoring.setStatus(monitoringRequest.getStatus());

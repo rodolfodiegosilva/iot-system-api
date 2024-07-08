@@ -11,7 +11,7 @@ import java.util.List;
 import java.util.Optional;
 
 @Repository
-public interface DeviceRepository extends JpaRepository<Device, Long>, JpaSpecificationExecutor<Device> {
+public interface DevicesRepository extends JpaRepository<Device, Long>, JpaSpecificationExecutor<Device> {
     List<Device> findByUserId(Long userId);
 
     Optional<Device> findByDeviceCode(String deviceCode);

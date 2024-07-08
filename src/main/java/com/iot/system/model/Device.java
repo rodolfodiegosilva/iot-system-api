@@ -4,8 +4,10 @@ import com.iot.system.user.User;
 import jakarta.persistence.*;
 import lombok.Data;
 import org.hibernate.annotations.CreationTimestamp;
+import com.fasterxml.jackson.annotation.JsonManagedReference;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Data
 @Entity
@@ -16,13 +18,20 @@ public class Device {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    private String name;
-    private String description;
-    private String status;
-    private String industryType;
-
     @Column(unique = true)
     private String deviceCode;
+    private String deviceName;
+    private String description;
+    private String industryType;
+    private String manufacturer;
+    private String url;
+
+    @Enumerated(EnumType.ORDINAL)
+    private DeviceStatus deviceStatus;
+
+    @OneToMany(mappedBy = "device", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonManagedReference
+    private List<CommandDescription> commands;
 
     @ManyToOne
     @JoinColumn(name = "user_id")

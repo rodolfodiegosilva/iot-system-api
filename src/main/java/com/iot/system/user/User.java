@@ -1,5 +1,6 @@
 package com.iot.system.user;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.Data;
 import org.springframework.security.core.GrantedAuthority;
@@ -19,6 +20,8 @@ public class User implements UserDetails {
     private String name;
     private String email;
     private String username;
+
+    @JsonIgnore
     private String password;
 
     @Enumerated(EnumType.STRING)

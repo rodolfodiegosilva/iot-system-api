@@ -7,7 +7,7 @@ import com.iot.system.exception.UnauthorizedException;
 import com.iot.system.model.Device;
 import com.iot.system.model.Monitoring;
 import com.iot.system.model.MonitoringStatus;
-import com.iot.system.repository.DeviceRepository;
+import com.iot.system.repository.DevicesRepository;
 import com.iot.system.repository.DeviceSpecification;
 import com.iot.system.repository.MonitoringRepository;
 import com.iot.system.repository.MonitoringSpecification;
@@ -34,7 +34,7 @@ public class DeviceService {
     private static final Logger logger = LoggerFactory.getLogger(DeviceService.class);
 
     @Autowired
-    private DeviceRepository deviceRepository;
+    private DevicesRepository devicesRepository;
 
     @Autowired
     private MonitoringRepository monitoringRepository;
@@ -48,9 +48,9 @@ public class DeviceService {
     public List<Device> getAllDevices() {
         final User currentUser = userService.getCurrentUser();
         if (currentUser.getRole().name().equals("ADMIN")) {
-            return deviceRepository.findAll();
+            return devicesRepository.findAll();
         }
-        return deviceRepository.findByUserId(currentUser.getId());
+        return devicesRepository.findByUserId(currentUser.getId());
     }
 
     public DeviceResponse getAllDevices(int pageNo, int pageSize, String sortBy, String sortDir, String status,
@@ -69,7 +69,7 @@ public class DeviceService {
             spec = spec.and(DeviceSpecification.hasUserId(currentUser.getId()));
         }
 
-        Page<Device> devices = deviceRepository.findAll(spec, pageable);
+        Page<Device> devices = devicesRepository.findAll(spec, pageable);
         List<Device> content = devices.getContent();
 
         return DeviceResponse.builder()
@@ -83,7 +83,7 @@ public class DeviceService {
     }
 
     public Device getDeviceByDeviceCode(String deviceCode) {
-        Device device = deviceRepository.findByDeviceCode(deviceCode)
+        Device device = devicesRepository.findByDeviceCode(deviceCode)
                 .orElseThrow(() -> new ResourceNotFoundException("Device not found"));
         User currentUser = userService.getCurrentUser();
         if (!device.getUser().getId().equals(currentUser.getId()) && !currentUser.getRole().name().equals("ADMIN")) {
@@ -96,30 +96,30 @@ public class DeviceService {
         User currentUser = userService.getCurrentUser();
         device.setUser(currentUser);
         device.setDeviceCode(generateDeviceCode());
-        return deviceRepository.save(device);
+        return devicesRepository.save(device);
     }
 
     public Device updateDevice(String deviceCode, Device deviceDetails) {
-        Device device = deviceRepository.findByDeviceCode(deviceCode)
+        Device device = devicesRepository.findByDeviceCode(deviceCode)
                 .orElseThrow(() -> new ResourceNotFoundException("Device not found"));
         User currentUser = userService.getCurrentUser();
         if (!device.getUser().getId().equals(currentUser.getId()) && !currentUser.getRole().name().equals("ADMIN")) {
             throw new UnauthorizedException("User not authorized to update this device");
         }
-        device.setName(deviceDetails.getName());
+        device.setDeviceName(deviceDetails.getDeviceName());
         device.setDescription(deviceDetails.getDescription());
-        device.setStatus(deviceDetails.getStatus());
-        return deviceRepository.save(device);
+        device.setDeviceStatus(deviceDetails.getDeviceStatus());
+        return devicesRepository.save(device);
     }
 
     public void deleteDevice(Long id) {
-        Device device = deviceRepository.findById(id)
+        Device device = devicesRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Device not found"));
         User currentUser = userService.getCurrentUser();
         if (!device.getUser().getId().equals(currentUser.getId()) && !currentUser.getRole().name().equals("ADMIN")) {
             throw new UnauthorizedException("User not authorized to delete this device");
         }
-        deviceRepository.deleteById(id);
+        devicesRepository.deleteById(id);
     }
 
     public MonitoringResponse getMonitoringsByDeviceCode(String deviceCode, int pageNo, int pageSize, String sortBy,
@@ -194,7 +194,7 @@ public class DeviceService {
     }
 
     private String generateDeviceCode() {
-        String lastDeviceCode = deviceRepository.findTopByOrderByCreatedAtDesc()
+        String lastDeviceCode = devicesRepository.findTopByOrderByCreatedAtDesc()
                 .map(Device::getDeviceCode)
                 .orElse("DVC00000");
 
@@ -203,8 +203,8 @@ public class DeviceService {
 
         do {
             lastNumber++;
-            newDeviceCode = "DVC" + String.format("%04d", lastNumber);
-        } while (deviceRepository.existsByDeviceCode(newDeviceCode));
+            newDeviceCode = "DVC" + String.format("%05d", lastNumber);
+        } while (devicesRepository.existsByDeviceCode(newDeviceCode));
 
         return newDeviceCode;
     }
