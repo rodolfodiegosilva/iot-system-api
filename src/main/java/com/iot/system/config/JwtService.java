@@ -1,9 +1,11 @@
-
-        package com.iot.system.config;
+package com.iot.system.config;
 
 import com.auth0.jwt.JWT;
 import com.auth0.jwt.algorithms.Algorithm;
+import com.auth0.jwt.exceptions.JWTVerificationException;
 import com.auth0.jwt.interfaces.DecodedJWT;
+import com.iot.system.exception.ExpiredJwtException;
+import com.iot.system.exception.InvalidJwtException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -21,11 +23,11 @@ public class JwtService {
     @Value("${jwt.secret}")
     private String secret;
 
-    public String extractUsername(String token) {
+    public String extractUsername(String token) throws ExpiredJwtException, InvalidJwtException {
         return extractClaim(token, DecodedJWT::getSubject);
     }
 
-    public <T> T extractClaim(String token, Function<DecodedJWT, T> claimsResolver) {
+    public <T> T extractClaim(String token, Function<DecodedJWT, T> claimsResolver) throws ExpiredJwtException, InvalidJwtException {
         final DecodedJWT jwt = decodeJWT(token);
         return claimsResolver.apply(jwt);
     }
@@ -43,16 +45,17 @@ public class JwtService {
         return (username.equals(userDetails.getUsername()) && !isTokenExpired(token));
     }
 
-    private boolean isTokenExpired(String token) {
+    private boolean isTokenExpired(String token) throws ExpiredJwtException, InvalidJwtException {
         return extractClaim(token, DecodedJWT::getExpiresAt).before(new Date());
     }
 
-    private DecodedJWT decodeJWT(String token) {
+    private DecodedJWT decodeJWT(String token) throws ExpiredJwtException, InvalidJwtException {
         try {
             return JWT.require(Algorithm.HMAC256(secret)).build().verify(token);
-        } catch (Exception e) {
-            logger.error("Error decoding JWT token", e);
-            throw e;
+        } catch (com.auth0.jwt.exceptions.TokenExpiredException e) {
+            throw new ExpiredJwtException("Token has expired");
+        } catch (JWTVerificationException e) {
+            throw new InvalidJwtException("Invalid token");
         }
     }
 }
