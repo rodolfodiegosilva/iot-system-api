@@ -6,7 +6,7 @@ import org.springframework.data.jpa.domain.Specification;
 public class DeviceSpecification {
 
     public static Specification<Device> hasStatus(String status) {
-        return (root, query, builder) -> status == null ? builder.conjunction() : builder.equal(root.get("status"), status);
+        return (root, query, builder) -> status == null ? builder.conjunction() : builder.equal(root.get("deviceStatus"), status);
     }
 
     public static Specification<Device> hasIndustryType(String industryType) {
@@ -18,7 +18,7 @@ public class DeviceSpecification {
     }
 
     public static Specification<Device> hasDeviceName(String deviceName) {
-        return (root, query, builder) -> deviceName == null ? builder.conjunction() : builder.like(root.get("name"), "%" + deviceName + "%");
+        return (root, query, builder) -> deviceName == null ? builder.conjunction() : builder.like(root.get("deviceName"), "%" + deviceName + "%");
     }
 
     public static Specification<Device> hasDescription(String description) {
