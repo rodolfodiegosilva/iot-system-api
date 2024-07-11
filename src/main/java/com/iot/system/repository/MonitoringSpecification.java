@@ -25,7 +25,7 @@ public class MonitoringSpecification {
     }
 
     public static Specification<Monitoring> hasDeviceName(String deviceName) {
-        return (root, query, builder) -> deviceName == null ? builder.conjunction() : builder.like(root.get("device").get("name"), "%" + deviceName + "%");
+        return (root, query, builder) -> deviceName == null ? builder.conjunction() : builder.like(root.get("device").get("deviceName"), "%" + deviceName + "%");
     }
 
     public static Specification<Monitoring> createdAtAfter(LocalDateTime createdAtStart) {

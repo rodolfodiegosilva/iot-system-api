@@ -1,14 +1,16 @@
 package com.iot.system.service;
 
+import com.iot.system.dto.CommandRequest;
 import com.iot.system.dto.DeviceResponse;
 import com.iot.system.dto.MonitoringResponse;
 import com.iot.system.exception.ResourceNotFoundException;
 import com.iot.system.exception.UnauthorizedException;
 import com.iot.system.model.Device;
+import com.iot.system.model.DeviceStatus;
 import com.iot.system.model.Monitoring;
 import com.iot.system.model.MonitoringStatus;
-import com.iot.system.repository.DevicesRepository;
 import com.iot.system.repository.DeviceSpecification;
+import com.iot.system.repository.DevicesRepository;
 import com.iot.system.repository.MonitoringRepository;
 import com.iot.system.repository.MonitoringSpecification;
 import com.iot.system.user.User;
@@ -27,6 +29,7 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.List;
+import java.util.Objects;
 
 @Service
 public class DeviceService {
@@ -53,8 +56,25 @@ public class DeviceService {
         return devicesRepository.findByUserId(currentUser.getId());
     }
 
+    public Device sendCommand(String deviceCode, CommandRequest commandRequest) {
+
+        Device device = devicesRepository.findByDeviceCode(deviceCode)
+                .orElseThrow(() -> new ResourceNotFoundException("Device not found"));
+        User currentUser = userService.getCurrentUser();
+        if (!device.getUser().getId().equals(currentUser.getId()) && !currentUser.getRole().name().equals("ADMIN")) {
+            throw new UnauthorizedException("User not authorized to view this device");
+        }
+        if (Objects.equals(commandRequest.getOperation(), "Deactivate")) {
+            device.setDeviceStatus(DeviceStatus.OFF);
+        } else if (Objects.equals(commandRequest.getOperation(), "Activate")) {
+            device.setDeviceStatus(DeviceStatus.ON);
+        }
+        return devicesRepository.save(device);
+
+    }
+
     public DeviceResponse getAllDevices(int pageNo, int pageSize, String sortBy, String sortDir, String status,
-            String industryType, String deviceName, String userName, String description, String deviceCode) {
+                                        String industryType, String deviceName, String userName, String description, String deviceCode) {
         Pageable pageable = PageRequest.of(pageNo, pageSize, Sort.by(Sort.Direction.fromString(sortDir), sortBy));
         final User currentUser = userService.getCurrentUser();
 
@@ -123,9 +143,9 @@ public class DeviceService {
     }
 
     public MonitoringResponse getMonitoringsByDeviceCode(String deviceCode, int pageNo, int pageSize, String sortBy,
-            String sortDir,
-            MonitoringStatus status, String monitoringCode, String userName, String deviceName,
-            String createdAt, String updatedAt) {
+                                                         String sortDir,
+                                                         MonitoringStatus status, String monitoringCode, String userName, String deviceName,
+                                                         String createdAt, String updatedAt) {
         logger.info("Fetching monitorings for deviceCode: {}", deviceCode);
 
         Pageable pageable = PageRequest.of(pageNo, pageSize,
@@ -190,7 +210,7 @@ public class DeviceService {
                 logger.error("Error parsing date range: {}", dateRange, e);
             }
         }
-        return new LocalDateTime[] { start, end };
+        return new LocalDateTime[]{start, end};
     }
 
     private String generateDeviceCode() {
