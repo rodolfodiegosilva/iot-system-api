@@ -1,5 +1,6 @@
 package com.iot.system.controller;
 
+import com.iot.system.dto.CommandRequest;
 import com.iot.system.dto.DeviceResponse;
 import com.iot.system.dto.MonitoringResponse;
 import com.iot.system.model.Device;
@@ -52,6 +53,18 @@ public class DeviceController {
     @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
     public ResponseEntity<Device> getDeviceById(@PathVariable String deviceCode) {
         Device device = deviceService.getDeviceByDeviceCode(deviceCode);
+        if (device != null) {
+            return ResponseEntity.ok(device);
+        } else {
+            return ResponseEntity.status(403).build();
+        }
+    }
+
+    @PostMapping("/command/{deviceCode}")
+    @Operation(summary = "Get a device by Device Code", description = "Retrieve a device by its Device Code")
+    @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
+    public ResponseEntity<Device> sendCommand(@PathVariable String deviceCode, @RequestBody CommandRequest commandRequest) {
+        Device device = deviceService.sendCommand(deviceCode, commandRequest);
         if (device != null) {
             return ResponseEntity.ok(device);
         } else {
