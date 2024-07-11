@@ -1,12 +1,20 @@
 package com.iot.system.controller;
 
+import com.iot.system.config.JwtAuthenticationFilter;
 import com.iot.system.dto.CommandRequest;
 import com.iot.system.dto.DeviceResponse;
 import com.iot.system.dto.MonitoringResponse;
+import com.iot.system.exception.GlobalExceptionHandler;
+import com.iot.system.exception.SuccessResponse;
 import com.iot.system.model.Device;
 import com.iot.system.model.MonitoringStatus;
 import com.iot.system.service.DeviceService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.ExampleObject;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -25,6 +33,13 @@ public class DeviceController {
 
     @GetMapping
     @Operation(summary = "Get all devices", description = "Retrieve a list of all devices")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Successfully retrieved devices"),
+            @ApiResponse(responseCode = "401", description = "Unauthorized", content = @Content(
+                    schema = @Schema(implementation = JwtAuthenticationFilter.ErrorResponse.class),
+                    examples = @ExampleObject(value = "{ \"status\": 401, \"message\": \"Unauthorized\", \"timestamp\": \"2024-07-11T18:04:42.4620788\" }")
+            ))
+    })
     @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
     public List<Device> getAllDevices() {
         return deviceService.getAllDevices();
@@ -32,11 +47,18 @@ public class DeviceController {
 
     @GetMapping("/pageable")
     @Operation(summary = "Get all devices pagination", description = "Retrieve a list of all devices with pagination and filtering")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Successfully retrieved devices"),
+            @ApiResponse(responseCode = "401", description = "Unauthorized", content = @Content(
+                    schema = @Schema(implementation = JwtAuthenticationFilter.ErrorResponse.class),
+                    examples = @ExampleObject(value = "{ \"status\": 401, \"message\": \"Unauthorized\", \"timestamp\": \"2024-07-11T18:04:42.4620788\" }")
+            ))
+    })
     @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
     public ResponseEntity<DeviceResponse> getAllDevices(
             @RequestParam(value = "pageNo", defaultValue = "0", required = false) int pageNo,
             @RequestParam(value = "pageSize", defaultValue = "10", required = false) int pageSize,
-            @RequestParam(value = "sortBy", defaultValue = "id", required = false) String sortBy,
+            @RequestParam(value = "sortBy", defaultValue = "deviceCode", required = false) String sortBy,
             @RequestParam(value = "sortDir", defaultValue = "asc", required = false) String sortDir,
             @RequestParam(value = "status", required = false) String status,
             @RequestParam(value = "industryType", required = false) String industryType,
@@ -50,6 +72,17 @@ public class DeviceController {
 
     @GetMapping("/{deviceCode}")
     @Operation(summary = "Get a device by Device Code", description = "Retrieve a device by its Device Code")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Successfully retrieved device"),
+            @ApiResponse(responseCode = "403", description = "Forbidden - User not authorized to view this device", content = @Content(
+                    schema = @Schema(implementation = JwtAuthenticationFilter.ErrorResponse.class),
+                    examples = @ExampleObject(value = "{ \"status\": 403, \"message\": \"Forbidden\", \"timestamp\": \"2024-07-11T18:04:42.4620788\" }")
+            )),
+            @ApiResponse(responseCode = "404", description = "Device not found", content = @Content(
+                    schema = @Schema(implementation = GlobalExceptionHandler.ErrorResponse.class),
+                    examples = @ExampleObject(value = "{ \"status\": 404, \"message\": \"Device not found\", \"timestamp\": \"2024-07-11T18:04:42.4620788\" }")
+            ))
+    })
     @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
     public ResponseEntity<Device> getDeviceById(@PathVariable String deviceCode) {
         Device device = deviceService.getDeviceByDeviceCode(deviceCode);
@@ -61,7 +94,18 @@ public class DeviceController {
     }
 
     @PostMapping("/command/{deviceCode}")
-    @Operation(summary = "Get a device by Device Code", description = "Retrieve a device by its Device Code")
+    @Operation(summary = "Send a command to a device", description = "Send a command to a device by its Device Code")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Successfully sent command to device"),
+            @ApiResponse(responseCode = "403", description = "Forbidden - User not authorized to send command to this device", content = @Content(
+                    schema = @Schema(implementation = JwtAuthenticationFilter.ErrorResponse.class),
+                    examples = @ExampleObject(value = "{ \"status\": 403, \"message\": \"Forbidden\", \"timestamp\": \"2024-07-11T18:04:42.4620788\" }")
+            )),
+            @ApiResponse(responseCode = "404", description = "Device not found", content = @Content(
+                    schema = @Schema(implementation = GlobalExceptionHandler.ErrorResponse.class),
+                    examples = @ExampleObject(value = "{ \"status\": 404, \"message\": \"Device not found\", \"timestamp\": \"2024-07-11T18:04:42.4620788\" }")
+            ))
+    })
     @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
     public ResponseEntity<Device> sendCommand(@PathVariable String deviceCode, @RequestBody CommandRequest commandRequest) {
         Device device = deviceService.sendCommand(deviceCode, commandRequest);
@@ -74,6 +118,17 @@ public class DeviceController {
 
     @PostMapping
     @Operation(summary = "Add a new device", description = "Add a new device to the system")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Successfully added device"),
+            @ApiResponse(responseCode = "400", description = "Invalid input", content = @Content(
+                    schema = @Schema(implementation = GlobalExceptionHandler.ErrorResponse.class),
+                    examples = @ExampleObject(value = "{ \"status\": 400, \"message\": \"Invalid input\", \"timestamp\": \"2024-07-11T18:04:42.4620788\" }")
+            )),
+            @ApiResponse(responseCode = "401", description = "Unauthorized", content = @Content(
+                    schema = @Schema(implementation = GlobalExceptionHandler.ErrorResponse.class),
+                    examples = @ExampleObject(value = "{ \"status\": 401, \"message\": \"Unauthorized\", \"timestamp\": \"2024-07-11T18:04:42.4620788\" }")
+            ))
+    })
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Device> addDevice(@RequestBody Device device) {
         return ResponseEntity.ok(deviceService.saveDevice(device));
@@ -81,6 +136,17 @@ public class DeviceController {
 
     @PutMapping("/{deviceCode}")
     @Operation(summary = "Update a device", description = "Update an existing device")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Successfully updated device"),
+            @ApiResponse(responseCode = "403", description = "Forbidden - User not authorized to update this device", content = @Content(
+                    schema = @Schema(implementation = GlobalExceptionHandler.ErrorResponse.class),
+                    examples = @ExampleObject(value = "{ \"status\": 403, \"message\": \"Forbidden\", \"timestamp\": \"2024-07-11T18:04:42.4620788\" }")
+            )),
+            @ApiResponse(responseCode = "404", description = "Device not found", content = @Content(
+                    schema = @Schema(implementation = GlobalExceptionHandler.ErrorResponse.class),
+                    examples = @ExampleObject(value = "{ \"status\": 404, \"message\": \"Device not found\", \"timestamp\": \"2024-07-11T18:04:42.4620788\" }")
+            ))
+    })
     @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
     public ResponseEntity<Device> updateDevice(@PathVariable String deviceCode, @RequestBody Device device)
             throws IllegalAccessException {
@@ -92,16 +158,41 @@ public class DeviceController {
         }
     }
 
-    @DeleteMapping("/{id}")
+    @DeleteMapping("/{deviceCode}")
     @Operation(summary = "Delete a device", description = "Delete a device from the system")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Successfully deleted device", content = @Content(
+                    schema = @Schema(implementation = SuccessResponse.class),
+                    examples = @ExampleObject(value = "{ \"status\": 200, \"message\": \"Device was successfully deleted\", \"timestamp\": \"2024-07-12T09:50:24.8405953\" }")
+            )),
+            @ApiResponse(responseCode = "403", description = "Forbidden - User not authorized to delete this device", content = @Content(
+                    schema = @Schema(implementation = GlobalExceptionHandler.ErrorResponse.class),
+                    examples = @ExampleObject(value = "{ \"status\": 403, \"message\": \"Forbidden\", \"timestamp\": \"2024-07-11T18:04:42.4620788\" }")
+            )),
+            @ApiResponse(responseCode = "404", description = "Device not found", content = @Content(
+                    schema = @Schema(implementation = GlobalExceptionHandler.ErrorResponse.class),
+                    examples = @ExampleObject(value = "{ \"status\": 404, \"message\": \"Device not found\", \"timestamp\": \"2024-07-11T18:04:42.4620788\" }")
+            ))
+    })
     @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
-    public ResponseEntity<Void> deleteDevice(@PathVariable Long id) throws IllegalAccessException {
-        deviceService.deleteDevice(id);
-        return ResponseEntity.noContent().build();
+    public ResponseEntity<SuccessResponse> deleteDevice(@PathVariable String deviceCode) throws IllegalAccessException {
+        SuccessResponse response = deviceService.deleteDevice(deviceCode);
+        return ResponseEntity.ok(response);
     }
 
     @GetMapping("/{deviceCode}/monitorings")
     @Operation(summary = "Get paginated monitorings for a device", description = "Retrieve a paginated list of monitorings for a specific device by its device code")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Successfully retrieved monitorings"),
+            @ApiResponse(responseCode = "403", description = "Forbidden - User not authorized to view these monitorings", content = @Content(
+                    schema = @Schema(implementation = GlobalExceptionHandler.ErrorResponse.class),
+                    examples = @ExampleObject(value = "{ \"status\": 403, \"message\": \"Forbidden\", \"timestamp\": \"2024-07-11T18:04:42.4620788\" }")
+            )),
+            @ApiResponse(responseCode = "404", description = "Device not found", content = @Content(
+                    schema = @Schema(implementation = GlobalExceptionHandler.ErrorResponse.class),
+                    examples = @ExampleObject(value = "{ \"status\": 404, \"message\": \"Device not found\", \"timestamp\": \"2024-07-11T18:04:42.4620788\" }")
+            ))
+    })
     @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
     public ResponseEntity<MonitoringResponse> getMonitoringsByDeviceCode(
             @PathVariable String deviceCode,

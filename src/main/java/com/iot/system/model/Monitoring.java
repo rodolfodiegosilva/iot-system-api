@@ -31,7 +31,7 @@ public class Monitoring {
     private Device device;
 
     @Enumerated(EnumType.STRING)
-    private MonitoringStatus status;
+    private MonitoringStatus monitoringStatus;
 
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
