@@ -49,4 +49,4 @@ jobs:
                   sudo docker rm -f iot-system
                 fi
             - name: Run docker container
-              run: sudo docker run --network host -d -p 8080:8080 -e MY_JWT_SECRET_KEY='${{secrets.MY_JWT_SECRET_KEY}}' -e DATABASE_USERNAME=${{secrets.DATABASE_USERNAME}} -e DATABASE_PASSWORD='${{secrets.DATABASE_PASSWORD}}' -e DATABASE_URL=${{secrets.DATABASE_URL}} --name iot-system diegoseven/iot-system
+              run: sudo docker run --network host -d -p 8080:8080 -e ENVIRONMENT=${{secrets.ENVIRONMENT}} -e URL_ENVIRONMENT=${{secrets.URL_ENVIRONMENT}} -e MY_JWT_SECRET_KEY='${{secrets.MY_JWT_SECRET_KEY}}' -e DATABASE_USERNAME=${{secrets.DATABASE_USERNAME}} -e DATABASE_PASSWORD='${{secrets.DATABASE_PASSWORD}}' -e DATABASE_URL=${{secrets.DATABASE_URL}} --name iot-system diegoseven/iot-system
