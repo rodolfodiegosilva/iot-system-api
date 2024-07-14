@@ -3,6 +3,7 @@ package com.iot.system.service;
 import com.iot.system.dto.MonitoringRequest;
 import com.iot.system.dto.MonitoringResponse;
 import com.iot.system.exception.ResourceNotFoundException;
+import com.iot.system.exception.SuccessResponse;
 import com.iot.system.exception.UnauthorizedException;
 import com.iot.system.model.Device;
 import com.iot.system.model.Monitoring;
@@ -46,31 +47,33 @@ public class MonitoringService {
     public List<Monitoring> createMonitoring(final List<MonitoringRequest> monitoringRequests) {
         final List<Monitoring> monitoringToAdd = new ArrayList<>();
 
-        final String lastMonitoringCode = monitoringRepository.findTopByOrderByCreatedAtDesc()
-                .map(Monitoring::getMonitoringCode)
-                .orElse("MON00000");
-        int lastNumber = Integer.parseInt(lastMonitoringCode.substring(3));
+        synchronized (this) {
+            final String lastMonitoringCode = monitoringRepository.findTopByOrderByCreatedAtDesc()
+                    .map(Monitoring::getMonitoringCode)
+                    .orElse("MON00000");
+            int lastNumber = Integer.parseInt(lastMonitoringCode.substring(3));
 
-        for (final MonitoringRequest request : monitoringRequests) {
-            final Device device = devicesRepository.findByDeviceCode(request.getDeviceCode())
-                    .orElseThrow(() -> new ResourceNotFoundException("Device not found"));
+            for (final MonitoringRequest request : monitoringRequests) {
+                final Device device = devicesRepository.findByDeviceCode(request.getDeviceCode())
+                        .orElseThrow(() -> new ResourceNotFoundException("Device with code " + request.getDeviceCode() + " not found"));
 
-            if (request.getDescription() == null || request.getDescription().isEmpty()) {
-                throw new IllegalArgumentException("Description cannot be null or empty");
+                if (request.getDescription() == null || request.getDescription().isEmpty()) {
+                    throw new IllegalArgumentException("Description cannot be null or empty");
+                }
+
+                final String newMonitoringCode = generateMonitoringCode(lastNumber);
+                lastNumber = Integer.parseInt(newMonitoringCode.substring(3)) + 1;
+
+                final Monitoring monitoring = new Monitoring();
+                monitoring.setMonitoringCode(newMonitoringCode);
+                monitoring.setUser(userService.getCurrentUser());
+                monitoring.setDevice(device);
+                monitoring.setMonitoringStatus(request.getMonitoringStatus());
+                monitoring.setDescription(request.getDescription());
+                monitoring.setCreatedAt(LocalDateTime.now());
+                monitoring.setUpdatedAt(LocalDateTime.now());
+                monitoringToAdd.add(monitoring);
             }
-
-            final String newMonitoringCode = generateMonitoringCode(lastNumber);
-            lastNumber = Integer.parseInt(newMonitoringCode.substring(3));
-
-            final Monitoring monitoring = new Monitoring();
-            monitoring.setMonitoringCode(newMonitoringCode);
-            monitoring.setUser(userService.getCurrentUser());
-            monitoring.setDevice(device);
-            monitoring.setStatus(request.getStatus());
-            monitoring.setDescription(request.getDescription());
-            monitoring.setCreatedAt(LocalDateTime.now());
-            monitoring.setUpdatedAt(LocalDateTime.now());
-            monitoringToAdd.add(monitoring);
         }
 
         return monitoringRepository.saveAll(monitoringToAdd);
@@ -87,7 +90,7 @@ public class MonitoringService {
     }
 
     public MonitoringResponse getAllMonitoring(final int pageNo, final int pageSize, final String sortBy, final String sortDir,
-                                               final MonitoringStatus status, final String deviceCode, final String monitoringCode,
+                                               final MonitoringStatus monitoringStatus, final String deviceCode, final String monitoringCode,
                                                final String userName, final String deviceName, final String createdAt, final String updatedAt) {
         final Pageable pageable = PageRequest.of(pageNo, pageSize,
                 sortDir.equalsIgnoreCase(Sort.Direction.ASC.name()) ? Sort.by(sortBy).ascending() : Sort.by(sortBy).descending());
@@ -96,7 +99,7 @@ public class MonitoringService {
         final LocalDateTime[] createdAtRange = parseDateRange(createdAt);
         final LocalDateTime[] updatedAtRange = parseDateRange(updatedAt);
 
-        Specification<Monitoring> spec = Specification.where(MonitoringSpecification.hasStatus(status))
+        Specification<Monitoring> spec = Specification.where(MonitoringSpecification.hasStatus(monitoringStatus))
                 .and(MonitoringSpecification.hasDeviceCode(deviceCode))
                 .and(MonitoringSpecification.hasMonitoringCode(monitoringCode))
                 .and(MonitoringSpecification.hasUserName(userName))
@@ -146,27 +149,38 @@ public class MonitoringService {
 
     public Monitoring updateMonitoring(final String monitoringCode, final MonitoringRequest monitoringRequest) {
         final Monitoring monitoring = monitoringRepository.findByMonitoringCode(monitoringCode)
-                .orElseThrow(() -> new ResourceNotFoundException("Monitoring not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Monitoring with code " + monitoringCode + " not found"));
+
         final User currentUser = userService.getCurrentUser();
         if (!monitoring.getUser().getId().equals(currentUser.getId()) && !currentUser.getRole().name().equals("ADMIN")) {
             throw new UnauthorizedException("User not authorized to update this monitoring");
         }
+
         if (!monitoring.getDevice().getDeviceCode().equals(monitoringRequest.getDeviceCode())) {
-            final Device device = devicesRepository.findByDeviceCode(monitoringRequest.getDeviceCode()).orElse(null);
+            final Device device = devicesRepository.findByDeviceCode(monitoringRequest.getDeviceCode())
+                    .orElseThrow(() -> new ResourceNotFoundException("Device with code " + monitoringRequest.getDeviceCode() + " not found"));
             monitoring.setDevice(device);
         }
-        monitoring.setStatus(monitoringRequest.getStatus());
+
+        monitoring.setMonitoringStatus(monitoringRequest.getMonitoringStatus());
+        monitoring.setDescription(monitoringRequest.getDescription()); // Adicionei a atualização da descrição, se necessário
+        monitoring.setUpdatedAt(LocalDateTime.now()); // Atualiza o campo updatedAt, se existir
+
         return monitoringRepository.save(monitoring);
     }
 
-    public void deleteMonitoring(final String monitoringCode) {
+    @Transactional
+    public SuccessResponse deleteMonitoring(final String monitoringCode) {
         final Monitoring monitoring = monitoringRepository.findByMonitoringCode(monitoringCode)
-                .orElseThrow(() -> new ResourceNotFoundException("Monitoring not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Monitoring with code " + monitoringCode + " not found"));
+
         final User currentUser = userService.getCurrentUser();
         if (!monitoring.getUser().getId().equals(currentUser.getId()) && !currentUser.getRole().name().equals("ADMIN")) {
             throw new UnauthorizedException("User not authorized to delete this monitoring");
         }
+
         monitoringRepository.deleteByMonitoringCode(monitoringCode);
+        return new SuccessResponse(200, "Monitoring was successfully deleted.");
     }
 
     public void deleteMultipleMonitoring(final List<String> monitoringCodes) {

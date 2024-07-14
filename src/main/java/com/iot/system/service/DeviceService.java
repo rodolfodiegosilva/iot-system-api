@@ -4,24 +4,25 @@ import com.iot.system.dto.CommandRequest;
 import com.iot.system.dto.DeviceResponse;
 import com.iot.system.dto.MonitoringResponse;
 import com.iot.system.exception.ResourceNotFoundException;
+import com.iot.system.exception.SuccessResponse;
 import com.iot.system.exception.UnauthorizedException;
-import com.iot.system.model.Device;
-import com.iot.system.model.DeviceStatus;
-import com.iot.system.model.Monitoring;
-import com.iot.system.model.MonitoringStatus;
+import com.iot.system.model.*;
 import com.iot.system.repository.DeviceSpecification;
 import com.iot.system.repository.DevicesRepository;
 import com.iot.system.repository.MonitoringRepository;
 import com.iot.system.repository.MonitoringSpecification;
 import com.iot.system.user.User;
+import jakarta.transaction.Transactional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
+import org.springframework.lang.NonNull;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
@@ -30,6 +31,7 @@ import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.List;
 import java.util.Objects;
+import java.util.stream.Collectors;
 
 @Service
 public class DeviceService {
@@ -42,10 +44,89 @@ public class DeviceService {
     @Autowired
     private MonitoringRepository monitoringRepository;
 
+    @Value("${url.environment}")
+    private String urlEnvironment;
+
     private final UserService userService;
 
-    public DeviceService(UserService userService) {
+    public DeviceService(@NonNull final UserService userService) {
         this.userService = userService;
+    }
+
+    public Device saveDevice(@NonNull final Device device) {
+        final User currentUser = userService.getCurrentUser();
+        device.setUser(currentUser);
+        device.setDeviceCode(generateDeviceCode());
+        device.setUrl(urlEnvironment + "/devices/command/" + device.getDeviceCode());
+        return devicesRepository.save(device);
+    }
+
+    public Device getDeviceByDeviceCode(@NonNull final String deviceCode) {
+        final Device device = devicesRepository.findByDeviceCode(deviceCode)
+                .orElseThrow(() -> new ResourceNotFoundException("Device not found"));
+        final User currentUser = userService.getCurrentUser();
+        if (!device.getUser().getId().equals(currentUser.getId()) && !currentUser.getRole().name().equals("ADMIN")) {
+            throw new UnauthorizedException("User not authorized to view this device");
+        }
+        return device;
+    }
+
+    public Device updateDevice(@NonNull final String deviceCode, @NonNull final Device deviceRequest) {
+        final Device device = devicesRepository.findByDeviceCode(deviceCode)
+                .orElseThrow(() -> new ResourceNotFoundException("Device not found"));
+        final User currentUser = userService.getCurrentUser();
+        if (!device.getUser().getId().equals(currentUser.getId()) && !currentUser.getRole().name().equals("ADMIN")) {
+            throw new UnauthorizedException("User not authorized to update this device");
+        }
+
+        device.setDeviceName(deviceRequest.getDeviceName());
+        device.setDescription(deviceRequest.getDescription());
+        device.setIndustryType(deviceRequest.getIndustryType());
+        device.setManufacturer(deviceRequest.getManufacturer());
+        device.setUrl(urlEnvironment + "/devices/command/" + device.getDeviceCode());
+        device.setDeviceStatus(deviceRequest.getDeviceStatus());
+        device.getCommands().clear();
+        final Device updatedDevice = devicesRepository.save(device);
+
+        deviceRequest.getCommands().forEach(commandDescription -> {
+            final CommandDescription newCommandDescription = new CommandDescription();
+            newCommandDescription.setOperation(commandDescription.getOperation());
+            newCommandDescription.setDescription(commandDescription.getDescription());
+            newCommandDescription.setResult(commandDescription.getResult());
+            newCommandDescription.setFormat(commandDescription.getFormat());
+            newCommandDescription.setDevice(updatedDevice);
+
+            final Command newCommand = new Command();
+            newCommand.setCommand(commandDescription.getCommand().getCommand());
+
+            final List<Parameter> newParameters = commandDescription.getCommand().getParameters().stream().map(parameter -> {
+                final Parameter newParameter = new Parameter();
+                newParameter.setName(parameter.getName());
+                newParameter.setDescription(parameter.getDescription());
+                newParameter.setCommand(newCommand);
+                return newParameter;
+            }).collect(Collectors.toList());
+
+            newCommand.setParameters(newParameters);
+            newCommandDescription.setCommand(newCommand);
+
+            updatedDevice.getCommands().add(newCommandDescription);
+        });
+
+        return devicesRepository.save(updatedDevice);
+    }
+
+    @Transactional
+    public SuccessResponse deleteDevice(@NonNull final String deviceCode) {
+        final Device device = devicesRepository.findByDeviceCode(deviceCode)
+                .orElseThrow(() -> new ResourceNotFoundException("Device not found"));
+        final User currentUser = userService.getCurrentUser();
+        if (!device.getUser().getId().equals(currentUser.getId()) && !currentUser.getRole().name().equals("ADMIN")) {
+            throw new UnauthorizedException("User not authorized to delete this device.");
+        }
+
+        devicesRepository.deleteByDeviceCode(deviceCode);
+        return new SuccessResponse(200, "Device was successfully deleted.");
     }
 
     public List<Device> getAllDevices() {
@@ -56,25 +137,8 @@ public class DeviceService {
         return devicesRepository.findByUserId(currentUser.getId());
     }
 
-    public Device sendCommand(String deviceCode, CommandRequest commandRequest) {
-
-        Device device = devicesRepository.findByDeviceCode(deviceCode)
-                .orElseThrow(() -> new ResourceNotFoundException("Device not found"));
-        User currentUser = userService.getCurrentUser();
-        if (!device.getUser().getId().equals(currentUser.getId()) && !currentUser.getRole().name().equals("ADMIN")) {
-            throw new UnauthorizedException("User not authorized to view this device");
-        }
-        if (Objects.equals(commandRequest.getOperation(), "Deactivate")) {
-            device.setDeviceStatus(DeviceStatus.OFF);
-        } else if (Objects.equals(commandRequest.getOperation(), "Activate")) {
-            device.setDeviceStatus(DeviceStatus.ON);
-        }
-        return devicesRepository.save(device);
-
-    }
-
-    public DeviceResponse getAllDevices(int pageNo, int pageSize, String sortBy, String sortDir, String status,
-                                        String industryType, String deviceName, String userName, String description, String deviceCode) {
+    public DeviceResponse getAllDevices(@NonNull final int pageNo, @NonNull final int pageSize, @NonNull final String sortBy, @NonNull final String sortDir, @NonNull final String status,
+                                        @NonNull final String industryType, @NonNull final String deviceName, @NonNull final String userName, @NonNull final String description, @NonNull final String deviceCode) {
         Pageable pageable = PageRequest.of(pageNo, pageSize, Sort.by(Sort.Direction.fromString(sortDir), sortBy));
         final User currentUser = userService.getCurrentUser();
 
@@ -102,50 +166,10 @@ public class DeviceService {
                 .build();
     }
 
-    public Device getDeviceByDeviceCode(String deviceCode) {
-        Device device = devicesRepository.findByDeviceCode(deviceCode)
-                .orElseThrow(() -> new ResourceNotFoundException("Device not found"));
-        User currentUser = userService.getCurrentUser();
-        if (!device.getUser().getId().equals(currentUser.getId()) && !currentUser.getRole().name().equals("ADMIN")) {
-            throw new UnauthorizedException("User not authorized to view this device");
-        }
-        return device;
-    }
-
-    public Device saveDevice(Device device) {
-        User currentUser = userService.getCurrentUser();
-        device.setUser(currentUser);
-        device.setDeviceCode(generateDeviceCode());
-        return devicesRepository.save(device);
-    }
-
-    public Device updateDevice(String deviceCode, Device deviceDetails) {
-        Device device = devicesRepository.findByDeviceCode(deviceCode)
-                .orElseThrow(() -> new ResourceNotFoundException("Device not found"));
-        User currentUser = userService.getCurrentUser();
-        if (!device.getUser().getId().equals(currentUser.getId()) && !currentUser.getRole().name().equals("ADMIN")) {
-            throw new UnauthorizedException("User not authorized to update this device");
-        }
-        device.setDeviceName(deviceDetails.getDeviceName());
-        device.setDescription(deviceDetails.getDescription());
-        device.setDeviceStatus(deviceDetails.getDeviceStatus());
-        return devicesRepository.save(device);
-    }
-
-    public void deleteDevice(Long id) {
-        Device device = devicesRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Device not found"));
-        User currentUser = userService.getCurrentUser();
-        if (!device.getUser().getId().equals(currentUser.getId()) && !currentUser.getRole().name().equals("ADMIN")) {
-            throw new UnauthorizedException("User not authorized to delete this device");
-        }
-        devicesRepository.deleteById(id);
-    }
-
-    public MonitoringResponse getMonitoringsByDeviceCode(String deviceCode, int pageNo, int pageSize, String sortBy,
-                                                         String sortDir,
-                                                         MonitoringStatus status, String monitoringCode, String userName, String deviceName,
-                                                         String createdAt, String updatedAt) {
+    public MonitoringResponse getMonitoringsByDeviceCode(@NonNull final String deviceCode, @NonNull final int pageNo, @NonNull final int pageSize, @NonNull final String sortBy,
+                                                         @NonNull final String sortDir,
+                                                         @NonNull final MonitoringStatus status, @NonNull final String monitoringCode, @NonNull final String userName, @NonNull final String deviceName,
+                                                         @NonNull final String createdAt, @NonNull final String updatedAt) {
         logger.info("Fetching monitorings for deviceCode: {}", deviceCode);
 
         Pageable pageable = PageRequest.of(pageNo, pageSize,
@@ -153,8 +177,8 @@ public class DeviceService {
                         : Sort.by(sortBy).descending());
         final User currentUser = userService.getCurrentUser();
 
-        LocalDateTime[] createdAtRange = parseDateRange(createdAt);
-        LocalDateTime[] updatedAtRange = parseDateRange(updatedAt);
+        final LocalDateTime[] createdAtRange = parseDateRange(createdAt);
+        final LocalDateTime[] updatedAtRange = parseDateRange(updatedAt);
 
         Specification<Monitoring> spec = Specification.where(MonitoringSpecification.hasDeviceCode(deviceCode))
                 .and(MonitoringSpecification.hasStatus(status))
@@ -179,7 +203,7 @@ public class DeviceService {
 
         logger.info("Found {} monitorings", monitorings.getTotalElements());
 
-        List<Monitoring> content = monitorings.getContent();
+        final List<Monitoring> content = monitorings.getContent();
 
         return MonitoringResponse.builder()
                 .content(content)
@@ -191,15 +215,30 @@ public class DeviceService {
                 .build();
     }
 
-    private LocalDateTime[] parseDateRange(String dateRange) {
-        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("MM/dd/yyyy");
+    public Device sendCommand(@NonNull final String deviceCode, @NonNull final CommandRequest commandRequest) {
+        final Device device = devicesRepository.findByDeviceCode(deviceCode)
+                .orElseThrow(() -> new ResourceNotFoundException("Device not found"));
+        final User currentUser = userService.getCurrentUser();
+        if (!device.getUser().getId().equals(currentUser.getId()) && !currentUser.getRole().name().equals("ADMIN")) {
+            throw new UnauthorizedException("User not authorized to view this device");
+        }
+        if (Objects.equals(commandRequest.getOperation(), "Deactivate")) {
+            device.setDeviceStatus(DeviceStatus.OFF);
+        } else if (Objects.equals(commandRequest.getOperation(), "Activate")) {
+            device.setDeviceStatus(DeviceStatus.ON);
+        }
+        return devicesRepository.save(device);
+    }
+
+    private LocalDateTime[] parseDateRange(@NonNull final String dateRange) {
+        final DateTimeFormatter formatter = DateTimeFormatter.ofPattern("MM/dd/yyyy");
         LocalDateTime start = null;
         LocalDateTime end = null;
 
-        if (dateRange != null && !dateRange.isEmpty()) {
+        if (!dateRange.isEmpty()) {
             try {
                 if (dateRange.contains("-")) {
-                    String[] dates = dateRange.split("-");
+                    final String[] dates = dateRange.split("-");
                     start = LocalDate.parse(dates[0].trim(), formatter).atStartOfDay();
                     end = LocalDate.parse(dates[1].trim(), formatter).atTime(23, 59, 59);
                 } else {
@@ -214,7 +253,7 @@ public class DeviceService {
     }
 
     private String generateDeviceCode() {
-        String lastDeviceCode = devicesRepository.findTopByOrderByCreatedAtDesc()
+        final String lastDeviceCode = devicesRepository.findTopByOrderByCreatedAtDesc()
                 .map(Device::getDeviceCode)
                 .orElse("DVC00000");
 

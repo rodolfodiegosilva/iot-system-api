@@ -8,8 +8,8 @@ import java.time.LocalDateTime;
 
 public class MonitoringSpecification {
 
-    public static Specification<Monitoring> hasStatus(MonitoringStatus status) {
-        return (root, query, builder) -> status == null ? builder.conjunction() : builder.equal(root.get("status"), status);
+    public static Specification<Monitoring> hasStatus(MonitoringStatus monitoringStatus) {
+        return (root, query, builder) -> monitoringStatus == null ? builder.conjunction() : builder.equal(root.get("monitoringStatus"), monitoringStatus);
     }
 
     public static Specification<Monitoring> hasDeviceCode(String deviceCode) {

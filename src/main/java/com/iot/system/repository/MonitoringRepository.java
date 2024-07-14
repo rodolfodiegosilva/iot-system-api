@@ -14,6 +14,8 @@ public interface MonitoringRepository extends JpaRepository<Monitoring, Long>, J
 
     void deleteByMonitoringCode(String monitoringCode);
 
+    void deleteByDeviceId(Long deviceId);
+
     List<Monitoring> findByUserId(Long userId);
 
     Optional<Monitoring> findTopByOrderByCreatedAtDesc();

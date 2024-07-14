@@ -17,11 +17,10 @@ public class UserService {
     private final UserRepository userRepository;
 
     public User getCurrentUser() {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        final Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         String usernameOrEmail = null;
 
-        if (authentication != null && authentication.getPrincipal() instanceof UserDetails) {
-            UserDetails userDetails = (UserDetails) authentication.getPrincipal();
+        if (authentication != null && authentication.getPrincipal() instanceof UserDetails userDetails) {
             usernameOrEmail = userDetails.getUsername();
         }
 
@@ -38,6 +37,7 @@ public class UserService {
                 .email(user.getEmail())
                 .role(user.getRole().toString())
                 .name(user.getName())
+                .username(user.getUsername())
                 .build();
     }
 }
