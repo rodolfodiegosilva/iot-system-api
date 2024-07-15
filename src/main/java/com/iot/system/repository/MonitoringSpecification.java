@@ -8,7 +8,7 @@ import java.time.LocalDateTime;
 
 public class MonitoringSpecification {
 
-    public static Specification<Monitoring> hasStatus(MonitoringStatus monitoringStatus) {
+    public static Specification<Monitoring> hasMonitoringStatus(MonitoringStatus monitoringStatus) {
         return (root, query, builder) -> monitoringStatus == null ? builder.conjunction() : builder.equal(root.get("monitoringStatus"), monitoringStatus);
     }
 

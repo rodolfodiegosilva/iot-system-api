@@ -11,8 +11,8 @@ import java.util.List;
 
 @Entity
 @Data
+@Table(name = "users")
 public class User implements UserDetails {
-
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;

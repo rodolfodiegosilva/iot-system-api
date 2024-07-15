@@ -33,6 +33,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
+
 @Service
 public class DeviceService {
 
@@ -49,28 +50,35 @@ public class DeviceService {
 
     private final UserService userService;
 
-    public DeviceService(@NonNull final UserService userService) {
+
+    public DeviceService(final DevicesRepository devicesRepository, final MonitoringRepository monitoringRepository, final UserService userService) {
+        this.devicesRepository = devicesRepository;
+        this.monitoringRepository = monitoringRepository;
         this.userService = userService;
     }
 
+    @Transactional
     public Device saveDevice(@NonNull final Device device) {
         final User currentUser = userService.getCurrentUser();
+        logger.info("Current user: {}", currentUser);
         device.setUser(currentUser);
         device.setDeviceCode(generateDeviceCode());
         device.setUrl(urlEnvironment + "/devices/command/" + device.getDeviceCode());
         return devicesRepository.save(device);
     }
 
+    @Transactional
     public Device getDeviceByDeviceCode(@NonNull final String deviceCode) {
         final Device device = devicesRepository.findByDeviceCode(deviceCode)
                 .orElseThrow(() -> new ResourceNotFoundException("Device not found"));
         final User currentUser = userService.getCurrentUser();
-        if (!device.getUser().getId().equals(currentUser.getId()) && !currentUser.getRole().name().equals("ADMIN")) {
+        if (!(device.getUser().getId().equals(currentUser.getId()) || currentUser.getRole().name().equals("ADMIN"))) {
             throw new UnauthorizedException("User not authorized to view this device");
         }
         return device;
     }
 
+    @Transactional
     public Device updateDevice(@NonNull final String deviceCode, @NonNull final Device deviceRequest) {
         final Device device = devicesRepository.findByDeviceCode(deviceCode)
                 .orElseThrow(() -> new ResourceNotFoundException("Device not found"));
@@ -129,6 +137,7 @@ public class DeviceService {
         return new SuccessResponse(200, "Device was successfully deleted.");
     }
 
+    @Transactional
     public List<Device> getAllDevices() {
         final User currentUser = userService.getCurrentUser();
         if (currentUser.getRole().name().equals("ADMIN")) {
@@ -137,12 +146,23 @@ public class DeviceService {
         return devicesRepository.findByUserId(currentUser.getId());
     }
 
-    public DeviceResponse getAllDevices(@NonNull final int pageNo, @NonNull final int pageSize, @NonNull final String sortBy, @NonNull final String sortDir, @NonNull final String status,
+    @Transactional
+    public DeviceResponse getAllDevices(@NonNull final int pageNo, @NonNull final int pageSize, @NonNull final String sortBy, @NonNull final String sortDir, @NonNull final String deviceStatus,
                                         @NonNull final String industryType, @NonNull final String deviceName, @NonNull final String userName, @NonNull final String description, @NonNull final String deviceCode) {
         Pageable pageable = PageRequest.of(pageNo, pageSize, Sort.by(Sort.Direction.fromString(sortDir), sortBy));
         final User currentUser = userService.getCurrentUser();
 
-        Specification<Device> spec = Specification.where(DeviceSpecification.hasStatus(status))
+        DeviceStatus statusEnum = null;
+        if (deviceStatus != null && !deviceStatus.isEmpty()) {
+            try {
+                statusEnum = DeviceStatus.valueOf(deviceStatus.toUpperCase());
+            } catch (IllegalArgumentException e) {
+                logger.error("Invalid DeviceStatus value: {}", deviceStatus, e);
+                throw new IllegalArgumentException("Invalid DeviceStatus value: " + deviceStatus);
+            }
+        }
+
+        Specification<Device> spec = Specification.where(DeviceSpecification.hasDeviceStatus(statusEnum))
                 .and(DeviceSpecification.hasIndustryType(industryType))
                 .and(DeviceSpecification.hasUserName(userName))
                 .and(DeviceSpecification.hasDeviceName(deviceName))
@@ -166,9 +186,10 @@ public class DeviceService {
                 .build();
     }
 
+    @Transactional
     public MonitoringResponse getMonitoringsByDeviceCode(@NonNull final String deviceCode, @NonNull final int pageNo, @NonNull final int pageSize, @NonNull final String sortBy,
                                                          @NonNull final String sortDir,
-                                                         @NonNull final MonitoringStatus status, @NonNull final String monitoringCode, @NonNull final String userName, @NonNull final String deviceName,
+                                                         @NonNull final String monitoringStatus, @NonNull final String monitoringCode, @NonNull final String userName, @NonNull final String deviceName,
                                                          @NonNull final String createdAt, @NonNull final String updatedAt) {
         logger.info("Fetching monitorings for deviceCode: {}", deviceCode);
 
@@ -180,8 +201,18 @@ public class DeviceService {
         final LocalDateTime[] createdAtRange = parseDateRange(createdAt);
         final LocalDateTime[] updatedAtRange = parseDateRange(updatedAt);
 
+        MonitoringStatus statusEnum = null;
+        if (monitoringStatus != null && !monitoringStatus.isEmpty()) {
+            try {
+                statusEnum = MonitoringStatus.valueOf(monitoringStatus.toUpperCase());
+            } catch (IllegalArgumentException e) {
+                logger.error("Invalid MonitoringStatus value: {}", monitoringStatus, e);
+                throw new IllegalArgumentException("Invalid MonitoringStatus value: " + monitoringStatus);
+            }
+        }
+
         Specification<Monitoring> spec = Specification.where(MonitoringSpecification.hasDeviceCode(deviceCode))
-                .and(MonitoringSpecification.hasStatus(status))
+                .and(MonitoringSpecification.hasMonitoringStatus(statusEnum))
                 .and(MonitoringSpecification.hasMonitoringCode(monitoringCode))
                 .and(MonitoringSpecification.hasUserName(userName))
                 .and(MonitoringSpecification.hasDeviceName(deviceName))
@@ -215,6 +246,7 @@ public class DeviceService {
                 .build();
     }
 
+    @Transactional
     public Device sendCommand(@NonNull final String deviceCode, @NonNull final CommandRequest commandRequest) {
         final Device device = devicesRepository.findByDeviceCode(deviceCode)
                 .orElseThrow(() -> new ResourceNotFoundException("Device not found"));
@@ -235,7 +267,7 @@ public class DeviceService {
         LocalDateTime start = null;
         LocalDateTime end = null;
 
-        if (!dateRange.isEmpty()) {
+        if (dateRange != null && !dateRange.isEmpty()) {
             try {
                 if (dateRange.contains("-")) {
                     final String[] dates = dateRange.split("-");

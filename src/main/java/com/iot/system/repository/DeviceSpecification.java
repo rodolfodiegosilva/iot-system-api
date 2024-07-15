@@ -1,12 +1,13 @@
 package com.iot.system.repository;
 
 import com.iot.system.model.Device;
+import com.iot.system.model.DeviceStatus;
 import org.springframework.data.jpa.domain.Specification;
 
 public class DeviceSpecification {
 
-    public static Specification<Device> hasStatus(String status) {
-        return (root, query, builder) -> status == null ? builder.conjunction() : builder.equal(root.get("deviceStatus"), status);
+    public static Specification<Device> hasDeviceStatus(DeviceStatus deviceStatus) {
+        return (root, query, builder) -> deviceStatus == null ? builder.conjunction() : builder.equal(root.get("deviceStatus"), deviceStatus);
     }
 
     public static Specification<Device> hasIndustryType(String industryType) {

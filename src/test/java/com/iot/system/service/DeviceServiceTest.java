@@ -1,130 +1,162 @@
 package com.iot.system.service;
 
-import com.iot.system.dto.DeviceDTO;
-import com.iot.system.dto.UserDTO;
+import com.iot.system.exception.ResourceNotFoundException;
+import com.iot.system.exception.SuccessResponse;
+import com.iot.system.exception.UnauthorizedException;
 import com.iot.system.model.Device;
-import com.iot.system.repository.DeviceRepository;
-import com.iot.system.repository.UserRepository;
+import com.iot.system.model.DeviceStatus;
+import com.iot.system.user.Role;
 import com.iot.system.user.User;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
-import org.mockito.MockitoAnnotations;
-import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.core.userdetails.UserDetails;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.test.context.jdbc.Sql;
+import org.springframework.test.context.junit.jupiter.SpringExtension;
 
-import java.util.Arrays;
-import java.util.List;
-import java.util.Optional;
+import java.util.ArrayList;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.mockito.Mockito.*;
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.when;
 
-public class DeviceServiceTest {
+@ExtendWith(SpringExtension.class)
+@SpringBootTest
+@Sql(scripts = "/test-data.sql")
+class DeviceServiceTest {
 
-    @Mock
-    private DeviceRepository deviceRepository;
+    @MockBean
+    private UserService userService;
 
-    @Mock
-    private UserRepository userRepository;
-
-    @Mock
-    private SecurityContextHolder securityContextHolder;
-
-    @InjectMocks
+    @Autowired
     private DeviceService deviceService;
 
-    private User user;
-    private UserDetails userDetails;
-
     @BeforeEach
-    public void setUp() {
-        MockitoAnnotations.openMocks(this);
-        user = new User();
-        user.setId(1L);
-        user.setName("Test User");
-        user.setEmail("test@example.com");
-        userDetails = mock(UserDetails.class);
-        when(userDetails.getUsername()).thenReturn(user.getEmail());
-        when(userRepository.findByEmail(user.getEmail())).thenReturn(Optional.of(user));
-        when(SecurityContextHolder.getContext().getAuthentication().getPrincipal()).thenReturn(userDetails);
+    void setUp() {
+        User mockUser = new User();
+        mockUser.setId(1L);
+        mockUser.setEmail("usertest1@example.com");
+        mockUser.setRole(Role.USER);
+        mockUser.setName("User Test 1");
+        mockUser.setUsername("usertest1");
+        when(userService.getCurrentUser()).thenReturn(mockUser);
     }
 
     @Test
-    public void testGetAllDevices() {
-        Device device1 = new Device();
-        device1.setId(1L);
-        device1.setName("Device1");
-
-        Device device2 = new Device();
-        device2.setId(2L);
-        device2.setName("Device2");
-
-        when(deviceRepository.findAll()).thenReturn(Arrays.asList(device1, device2));
-
-        List<DeviceDTO> devices = deviceService.getAllDevices();
-        assertEquals(2, devices.size());
-        verify(deviceRepository, times(1)).findAll();
-    }
-
-    @Test
-    public void testGetDeviceById() {
+    void testSaveDevice() {
         Device device = new Device();
-        device.setId(1L);
-        device.setName("Device1");
+        device.setDeviceName("Test Device");
+        device.setDescription("Test Description");
+        device.setIndustryType("Test Industry");
+        device.setManufacturer("Test Manufacturer");
 
-        when(deviceRepository.findById(1L)).thenReturn(Optional.of(device));
+        Device result = deviceService.saveDevice(device);
 
-        DeviceDTO foundDevice = deviceService.getDeviceById(1L);
-        assertEquals("Device1", foundDevice.getName());
-        verify(deviceRepository, times(1)).findById(1L);
+        assertNotNull(result);
+        assertNotNull(result.getId());
+        assertEquals("Test Device", result.getDeviceName());
+        assertEquals("Test Description", result.getDescription());
+        assertEquals("Test Industry", result.getIndustryType());
+        assertEquals("Test Manufacturer", result.getManufacturer());
+        assertNotNull(result.getUser());
+        assertTrue(result.getDeviceCode().startsWith("DVC"));
+        assertTrue(result.getUrl().contains(result.getDeviceCode()));
     }
 
     @Test
-    public void testSaveDevice() {
-        Device device = new Device();
-        device.setName("Device1");
+    void testGetDeviceByDeviceCode() {
+        Device retrievedDevice = deviceService.getDeviceByDeviceCode("DVC00002");
 
-        when(deviceRepository.save(device)).thenReturn(device);
-
-        DeviceDTO savedDevice = deviceService.saveDevice(device);
-        assertEquals("Device1", savedDevice.getName());
-        verify(deviceRepository, times(1)).save(device);
+        assertNotNull(retrievedDevice);
+        assertEquals("Predefined Device", retrievedDevice.getDeviceName());
+        assertEquals("Predefined Description", retrievedDevice.getDescription());
+        assertEquals("Test Industry", retrievedDevice.getIndustryType());
+        assertEquals("Test Manufacturer", retrievedDevice.getManufacturer());
+        assertNotNull(retrievedDevice.getUser());
+        assertEquals(1L, retrievedDevice.getUser().getId());
     }
 
     @Test
-    public void testDeleteDevice() throws IllegalAccessException {
-        Device device = new Device();
-        device.setId(1L);
-        device.setUser(user);
+    void testGetDeviceByDeviceCodeUnauthorized() {
+        User unauthorizedUser = new User();
+        unauthorizedUser.setId(3L);
+        unauthorizedUser.setEmail("unauthorized@example.com");
+        unauthorizedUser.setRole(Role.USER);
+        unauthorizedUser.setName("Unauthorized User");
+        unauthorizedUser.setUsername("unauthorized");
+        when(userService.getCurrentUser()).thenReturn(unauthorizedUser);
 
-        when(deviceRepository.findById(1L)).thenReturn(Optional.of(device));
-
-        deviceService.deleteDevice(1L);
-        verify(deviceRepository, times(1)).deleteById(1L);
+        assertThrows(UnauthorizedException.class, () -> {
+            deviceService.getDeviceByDeviceCode("DVC00002");
+        });
     }
 
     @Test
-    public void testUpdateDevice() throws IllegalAccessException {
-        Device existingDevice = new Device();
-        existingDevice.setId(1L);
-        existingDevice.setName("OldName");
-        existingDevice.setDescription("OldDescription");
-        existingDevice.setUser(user);
+    void testGetDeviceByDeviceCodeDeviceNotFound() {
+        assertThrows(ResourceNotFoundException.class, () -> {
+            deviceService.getDeviceByDeviceCode("DVC999999");
+        });
+    }
 
-        Device updatedDevice = new Device();
-        updatedDevice.setName("NewName");
-        updatedDevice.setDescription("NewDescription");
+    @Test
+    void testUpdateDevice() {
+        Device deviceRequest = new Device();
+        deviceRequest.setDeviceName("Updated Device");
+        deviceRequest.setDescription("Updated Description");
+        deviceRequest.setIndustryType("Updated Industry");
+        deviceRequest.setManufacturer("Updated Manufacturer");
+        deviceRequest.setDeviceStatus(DeviceStatus.ON);
+        deviceRequest.setCommands(new ArrayList<>());
 
-        when(deviceRepository.findById(1L)).thenReturn(Optional.of(existingDevice));
-        when(deviceRepository.save(existingDevice)).thenReturn(existingDevice);
+        Device updatedDevice = deviceService.updateDevice("DVC00002", deviceRequest);
 
-        DeviceDTO result = deviceService.updateDevice(1L, updatedDevice);
+        assertNotNull(updatedDevice);
+        assertEquals("Updated Device", updatedDevice.getDeviceName());
+        assertEquals("Updated Description", updatedDevice.getDescription());
+        assertEquals("Updated Industry", updatedDevice.getIndustryType());
+        assertEquals("Updated Manufacturer", updatedDevice.getManufacturer());
+        assertEquals(DeviceStatus.ON, updatedDevice.getDeviceStatus());
+    }
 
-        assertEquals("NewName", result.getName());
-        assertEquals("NewDescription", result.getDescription());
-        verify(deviceRepository, times(1)).findById(1L);
-        verify(deviceRepository, times(1)).save(existingDevice);
+    @Test
+    void testDeleteDevice() {
+        SuccessResponse response = deviceService.deleteDevice("DVC00002");
+        assertEquals(200, response.getStatus());
+        assertEquals("Device was successfully deleted.", response.getMessage());
+    }
+
+    @Test
+    void testUpdateDeviceUnauthorized() {
+        User unauthorizedUser = new User();
+        unauthorizedUser.setId(3L);
+        unauthorizedUser.setEmail("unauthorized@example.com");
+        unauthorizedUser.setRole(Role.USER);
+        unauthorizedUser.setName("Unauthorized User");
+        unauthorizedUser.setUsername("unauthorized");
+        unauthorizedUser.setPassword("Abc@123");
+        when(userService.getCurrentUser()).thenReturn(unauthorizedUser);
+
+        Device deviceRequest = new Device();
+        deviceRequest.setDeviceName("Updated Device");
+
+        assertThrows(UnauthorizedException.class, () -> {
+            deviceService.updateDevice("DVC00002", deviceRequest);
+        });
+    }
+
+    @Test
+    void testDeleteDeviceUnauthorized() {
+        User unauthorizedUser = new User();
+        unauthorizedUser.setId(3L);
+        unauthorizedUser.setEmail("unauthorized@example.com");
+        unauthorizedUser.setRole(Role.USER);
+        unauthorizedUser.setName("Unauthorized User");
+        unauthorizedUser.setUsername("unauthorized");
+        when(userService.getCurrentUser()).thenReturn(unauthorizedUser);
+
+        assertThrows(UnauthorizedException.class, () -> {
+            deviceService.deleteDevice("DVC00002");
+        });
     }
 }

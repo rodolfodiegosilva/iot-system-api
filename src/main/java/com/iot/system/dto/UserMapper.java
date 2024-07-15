@@ -1,6 +1,5 @@
 package com.iot.system.dto;
 
-import com.iot.system.dto.UserDTO;
 import com.iot.system.user.User;
 
 public class UserMapper {
