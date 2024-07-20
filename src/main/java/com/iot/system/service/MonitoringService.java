@@ -99,7 +99,7 @@ public class MonitoringService {
         final LocalDateTime[] createdAtRange = parseDateRange(createdAt);
         final LocalDateTime[] updatedAtRange = parseDateRange(updatedAt);
 
-        Specification<Monitoring> spec = Specification.where(MonitoringSpecification.hasStatus(monitoringStatus))
+        Specification<Monitoring> spec = Specification.where(MonitoringSpecification.hasMonitoringStatus(monitoringStatus))
                 .and(MonitoringSpecification.hasDeviceCode(deviceCode))
                 .and(MonitoringSpecification.hasMonitoringCode(monitoringCode))
                 .and(MonitoringSpecification.hasUserName(userName))

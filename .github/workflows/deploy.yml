@@ -21,7 +21,7 @@ jobs:
               run: chmod +x ./gradlew
             
             - name: Build with Gradle Wrapper
-              run: ./gradlew build -x test
+              run: ./gradlew build
 
             - name: Login Docker Hub
               run: docker login -u ${{secrets.DOCKER_USERNAME}} -p ${{secrets.DOCKER_PASSWORD}}

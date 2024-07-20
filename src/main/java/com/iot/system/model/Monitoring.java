@@ -30,7 +30,7 @@ public class Monitoring {
     @JoinColumn(name = "device_id", nullable = false)
     private Device device;
 
-    @Enumerated(EnumType.STRING)
+    @Enumerated(EnumType.ORDINAL)
     private MonitoringStatus monitoringStatus;
 
     private LocalDateTime createdAt;

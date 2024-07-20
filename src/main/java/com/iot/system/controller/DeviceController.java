@@ -18,7 +18,6 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -40,7 +39,6 @@ public class DeviceController {
                     examples = @ExampleObject(value = "{ \"status\": 401, \"message\": \"Unauthorized\", \"timestamp\": \"2024-07-11T18:04:42.4620788\" }")
             ))
     })
-    @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
     public List<Device> getAllDevices() {
         return deviceService.getAllDevices();
     }
@@ -54,20 +52,19 @@ public class DeviceController {
                     examples = @ExampleObject(value = "{ \"status\": 401, \"message\": \"Unauthorized\", \"timestamp\": \"2024-07-11T18:04:42.4620788\" }")
             ))
     })
-    @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
     public ResponseEntity<DeviceResponse> getAllDevices(
             @RequestParam(value = "pageNo", defaultValue = "0", required = false) int pageNo,
             @RequestParam(value = "pageSize", defaultValue = "10", required = false) int pageSize,
             @RequestParam(value = "sortBy", defaultValue = "deviceCode", required = false) String sortBy,
             @RequestParam(value = "sortDir", defaultValue = "asc", required = false) String sortDir,
-            @RequestParam(value = "status", required = false) String status,
+            @RequestParam(value = "deviceStatus", required = false) String deviceStatus,
             @RequestParam(value = "industryType", required = false) String industryType,
             @RequestParam(value = "deviceName", required = false) String deviceName,
             @RequestParam(value = "userName", required = false) String userName,
             @RequestParam(value = "description", required = false) String description,
             @RequestParam(value = "deviceCode", required = false) String deviceCode
     ) {
-        return ResponseEntity.ok(deviceService.getAllDevices(pageNo, pageSize, sortBy, sortDir, status, industryType, deviceName, userName, description, deviceCode));
+        return ResponseEntity.ok(deviceService.getAllDevices(pageNo, pageSize, sortBy, sortDir, deviceStatus, industryType, deviceName, userName, description, deviceCode));
     }
 
     @GetMapping("/{deviceCode}")
@@ -83,8 +80,7 @@ public class DeviceController {
                     examples = @ExampleObject(value = "{ \"status\": 404, \"message\": \"Device not found\", \"timestamp\": \"2024-07-11T18:04:42.4620788\" }")
             ))
     })
-    @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
-    public ResponseEntity<Device> getDeviceById(@PathVariable String deviceCode) {
+    public ResponseEntity<Device> getDeviceByDeviceCode(@PathVariable String deviceCode) {
         Device device = deviceService.getDeviceByDeviceCode(deviceCode);
         if (device != null) {
             return ResponseEntity.ok(device);
@@ -106,7 +102,6 @@ public class DeviceController {
                     examples = @ExampleObject(value = "{ \"status\": 404, \"message\": \"Device not found\", \"timestamp\": \"2024-07-11T18:04:42.4620788\" }")
             ))
     })
-    @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
     public ResponseEntity<Device> sendCommand(@PathVariable String deviceCode, @RequestBody CommandRequest commandRequest) {
         Device device = deviceService.sendCommand(deviceCode, commandRequest);
         if (device != null) {
@@ -129,7 +124,6 @@ public class DeviceController {
                     examples = @ExampleObject(value = "{ \"status\": 401, \"message\": \"Unauthorized\", \"timestamp\": \"2024-07-11T18:04:42.4620788\" }")
             ))
     })
-    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Device> addDevice(@RequestBody Device device) {
         return ResponseEntity.ok(deviceService.saveDevice(device));
     }
@@ -147,7 +141,6 @@ public class DeviceController {
                     examples = @ExampleObject(value = "{ \"status\": 404, \"message\": \"Device not found\", \"timestamp\": \"2024-07-11T18:04:42.4620788\" }")
             ))
     })
-    @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
     public ResponseEntity<Device> updateDevice(@PathVariable String deviceCode, @RequestBody Device device)
             throws IllegalAccessException {
         Device updatedDevice = deviceService.updateDevice(deviceCode, device);
@@ -174,7 +167,6 @@ public class DeviceController {
                     examples = @ExampleObject(value = "{ \"status\": 404, \"message\": \"Device not found\", \"timestamp\": \"2024-07-11T18:04:42.4620788\" }")
             ))
     })
-    @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
     public ResponseEntity<SuccessResponse> deleteDevice(@PathVariable String deviceCode) throws IllegalAccessException {
         SuccessResponse response = deviceService.deleteDevice(deviceCode);
         return ResponseEntity.ok(response);
@@ -193,20 +185,19 @@ public class DeviceController {
                     examples = @ExampleObject(value = "{ \"status\": 404, \"message\": \"Device not found\", \"timestamp\": \"2024-07-11T18:04:42.4620788\" }")
             ))
     })
-    @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
     public ResponseEntity<MonitoringResponse> getMonitoringsByDeviceCode(
             @PathVariable String deviceCode,
             @RequestParam(value = "pageNo", defaultValue = "0", required = false) int pageNo,
             @RequestParam(value = "pageSize", defaultValue = "10", required = false) int pageSize,
             @RequestParam(value = "sortBy", defaultValue = "id", required = false) String sortBy,
             @RequestParam(value = "sortDir", defaultValue = "asc", required = false) String sortDir,
-            @RequestParam(value = "status", required = false) MonitoringStatus status,
+            @RequestParam(value = "monitoringStatus", required = false) String monitoringStatus,
             @RequestParam(value = "monitoringCode", required = false) String monitoringCode,
             @RequestParam(value = "userName", required = false) String userName,
             @RequestParam(value = "deviceName", required = false) String deviceName,
             @RequestParam(value = "createdAt", required = false) String createdAt,
             @RequestParam(value = "updatedAt", required = false) String updatedAt
     ) {
-        return ResponseEntity.ok(deviceService.getMonitoringsByDeviceCode(deviceCode, pageNo, pageSize, sortBy, sortDir, status, monitoringCode, userName, deviceName, createdAt, updatedAt));
+        return ResponseEntity.ok(deviceService.getMonitoringsByDeviceCode(deviceCode, pageNo, pageSize, sortBy, sortDir, monitoringStatus, monitoringCode, userName, deviceName, createdAt, updatedAt));
     }
 }

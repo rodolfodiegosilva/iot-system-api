@@ -4,11 +4,14 @@ import com.iot.system.dto.UserDTO;
 import com.iot.system.exception.ResourceNotFoundException;
 import com.iot.system.repository.UserRepository;
 import com.iot.system.user.User;
+import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
+
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -28,6 +31,10 @@ public class UserService {
         return userRepository.findByUsername(finalUsernameOrEmail)
                 .or(() -> userRepository.findByEmail(finalUsernameOrEmail))
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+    }
+
+    public Optional<User> findByEmail(@NonNull String email){
+        return userRepository.findByEmail(email);
     }
 
     public UserDTO getUser() {

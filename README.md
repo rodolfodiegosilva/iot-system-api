@@ -72,7 +72,7 @@ This is the IoT System API, which manages IoT devices and their monitoring. The 
 
 1. Clone the repository:
    ```bash
-   git clone <REPOSITORY_URL>
+   git clone https://github.com/rodolfodiegosilva/iot-sytem-api.git
    ```
 2. Navigate to the project directory:
    ```bash
