@@ -2,6 +2,25 @@
 
 This is the IoT System API, which manages IoT devices and their monitoring. The API allows registration, authentication, and management of devices, as well as device status monitoring.
 
+
+The IoT System API is deployed on an AWS EC2 instance running Amazon Linux.
+
+The deployment process is automated using GitHub Actions, with pipelines defined in `.github/workflows/build.yml` and `.github/workflows/deploy.yml`. These pipelines are responsible for building and deploying the application, running unit tests, and generating code coverage reports.
+
+The unit tests are executed during the build process, and the code coverage report is generated and made available at:
+
+```
+https://iot-system.rodolfo-silva-api.com/coverage/index.html
+```
+
+Within the EC2 instance, the application is containerized and runs inside a Docker container, providing consistency across different environments.
+
+NGINX is used as a reverse proxy to handle incoming requests and serve the application, making it accessible via the subdomain:
+
+```
+https://iot-system.rodolfo-silva-api.com
+```
+
 ## Technologies Used
 
 - Java 17
@@ -13,6 +32,7 @@ This is the IoT System API, which manages IoT devices and their monitoring. The 
 - MySQL
 - Swagger/OpenAPI
 - Gradle
+- Docker
 
 ## Project Structure
 
@@ -47,19 +67,23 @@ This is the IoT System API, which manages IoT devices and their monitoring. The 
 
 ### DeviceController
 
-- `GET /devices` - Get devices
+- `GET /devices` - Get all devices
 - `GET /devices/pageable` - Get devices with pagination and filtering
 - `GET /devices/{deviceCode}` - Get a device by its code
 - `POST /devices/command/{deviceCode}` - Send a command to a device
 - `POST /devices` - Add a new device
 - `PUT /devices/{deviceCode}` - Update an existing device
 - `DELETE /devices/{id}` - Delete a device
-- `GET /devices/{deviceCode}/monitorings` - Get paginated monitoring for a device
+- `GET /devices/{deviceCode}/monitorings` - Get paginated monitoring data for a device
 
 ### MonitoringController
 
-- `GET /monitoring` - Get monitorings
+- `GET /monitoring` - Get all monitorings
+- `GET /monitoring/pageable` - Get monitorings with pagination and filtering
+- `GET /monitoring/{monitoringCode}` - Get monitoring by monitoring code
 - `POST /monitoring` - Add a new monitoring
+- `PUT /monitoring/{monitoringCode}` - Update an existing monitoring
+- `DELETE /monitoring/{monitoringCode}` - Delete a monitoring by monitoring code
 
 ## Running the Application
 
@@ -67,16 +91,17 @@ This is the IoT System API, which manages IoT devices and their monitoring. The 
 
 - Java 17
 - MySQL
+- Gradle
 
 ### Initial Setup
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/rodolfodiegosilva/iot-sytem-api.git
+   git clone https://github.com/rodolfodiegosilva/iot-system-api.git
    ```
 2. Navigate to the project directory:
    ```bash
-   cd project-name
+   cd iot-system-api
    ```
 3. Configure the database in the `application.properties` file:
    ```
@@ -138,7 +163,7 @@ Register a new user in the system with necessary credentials. If successful, ret
 - Response (raw JSON):
   ```json
   {
-    "token": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJvcmciLCJleHAiOjE1OTAwODMwMjcsImlhdCI6MTU5MDA4MzAyN30.qpIToU8_gwK9PX8E2lXIN_QuXaE59VU6hvb17i9t9wc"
+    "token": "token_generated_in_login_request"
   }
   ```
 
@@ -166,7 +191,7 @@ Authenticate a user using their credentials. If successful, returns a token.
 - Response (raw JSON):
   ```json
   {
-    "token": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ2aWNhciIsImV4cCI6MTU5MDA4MzAyNywiaWF0IjoxNTkwMDgzMDI3fQ.tgKAFKN8w6QPH64-Ed-VP6Hk36LDGYU-EUDBqlS6A"
+    "token": "token_generated_in_login_request"
   }
   ```
 
@@ -1986,8 +2011,4 @@ Delete a specific monitoring by its monitoring code.
 
 ## Contact and Support
 
-For questions or support, contact us at: support@example.com
-
-## License
-
-This project is licensed under the MIT License. See the LICENSE file for more details.
+For questions or support, contact us at: 
