@@ -54,7 +54,8 @@ tasks.jacocoTestReport {
 
     reports {
         xml.required.set(true)
-        csv.required.set(false)
-        html.outputLocation.set(file("${buildDir}/jacocoHtml"))
+        csv.required.set(true)  // Ativando o relatório CSV
+        html.required.set(true) // Certificando que o HTML está ativado
+        html.outputLocation.set(layout.buildDirectory.dir("jacocoHtml"))
     }
 }
