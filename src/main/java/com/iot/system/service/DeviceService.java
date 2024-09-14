@@ -1,6 +1,7 @@
 package com.iot.system.service;
 
 import com.iot.system.dto.CommandRequest;
+import com.iot.system.dto.DeviceRequest;
 import com.iot.system.dto.DeviceResponse;
 import com.iot.system.dto.MonitoringResponse;
 import com.iot.system.exception.ResourceNotFoundException;
@@ -29,6 +30,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
@@ -58,22 +60,57 @@ public class DeviceService {
     }
 
     @Transactional
-    public Device saveDevice(@NonNull final Device device) {
+    public Device saveDevice(@NonNull final DeviceRequest deviceRequest) {
+
         final User currentUser = userService.getCurrentUser();
-        logger.info("Current user: {}", currentUser);
-        device.setUser(currentUser);
-        device.setDeviceCode(generateDeviceCode());
-        device.setUrl(urlEnvironment + "/devices/command/" + device.getDeviceCode());
+
+        Device device = new Device();
+        String generatedDeviceCode = generateDeviceCode();
+        device.setDeviceCode(generatedDeviceCode);
+        device.setDeviceName(deviceRequest.getDeviceName());
+        device.setDescription(deviceRequest.getDescription());
+        device.setIndustryType(deviceRequest.getIndustryType());
+        device.setManufacturer(deviceRequest.getManufacturer());
+        String deviceUrl = urlEnvironment + "/devices/command/" + device.getDeviceCode();
+        device.setUrl(deviceUrl);
+        device.setDeviceStatus(deviceRequest.getDeviceStatus());
+
+        List<CommandDescription> commandDescriptions = deviceRequest.getCommands();
+
+        // Associe cada comando ao dispositivo antes de salvar
+        if (commandDescriptions != null) {
+            for (CommandDescription command : commandDescriptions) {
+                command.setDevice(device); // Associa o comando ao dispositivo
+            }
+            device.setCommands(commandDescriptions);
+        }
+
+        device.setCreatedBy(currentUser);
+
+        List<User> users = new ArrayList<>();
+        users.add(currentUser);
+
+        if (deviceRequest.getUsernames() != null && !deviceRequest.getUsernames().isEmpty()) {
+            List<User> additionalUsers = userService.findUsersByUsernameList(deviceRequest.getUsernames());
+            users.addAll(additionalUsers);
+        }
+
+        device.setUsers(users);
+
+        // Salve o dispositivo, o JPA cuidará de persistir as entidades relacionadas
         return devicesRepository.save(device);
     }
+
+
 
     @Transactional
     public Device getDeviceByDeviceCode(@NonNull final String deviceCode) {
         final Device device = devicesRepository.findByDeviceCode(deviceCode)
                 .orElseThrow(() -> new ResourceNotFoundException("Device not found"));
         final User currentUser = userService.getCurrentUser();
-        if (!(device.getUser().getId().equals(currentUser.getId()) || currentUser.getRole().name().equals("ADMIN"))) {
-            throw new UnauthorizedException("User not authorized to view this device");
+        if (device.getUsers().stream().noneMatch(user -> user.getId().equals(currentUser.getId()))
+                && !currentUser.getRole().name().equals("ADMIN")) {
+            throw new UnauthorizedException("User not authorized to delete this device.");
         }
         return device;
     }
@@ -83,8 +120,9 @@ public class DeviceService {
         final Device device = devicesRepository.findByDeviceCode(deviceCode)
                 .orElseThrow(() -> new ResourceNotFoundException("Device not found"));
         final User currentUser = userService.getCurrentUser();
-        if (!device.getUser().getId().equals(currentUser.getId()) && !currentUser.getRole().name().equals("ADMIN")) {
-            throw new UnauthorizedException("User not authorized to update this device");
+        if (device.getUsers().stream().noneMatch(user -> user.getId().equals(currentUser.getId()))
+                && !currentUser.getRole().name().equals("ADMIN")) {
+            throw new UnauthorizedException("User not authorized to delete this device.");
         }
 
         device.setDeviceName(deviceRequest.getDeviceName());
@@ -129,7 +167,8 @@ public class DeviceService {
         final Device device = devicesRepository.findByDeviceCode(deviceCode)
                 .orElseThrow(() -> new ResourceNotFoundException("Device not found"));
         final User currentUser = userService.getCurrentUser();
-        if (!device.getUser().getId().equals(currentUser.getId()) && !currentUser.getRole().name().equals("ADMIN")) {
+        if (device.getUsers().stream().noneMatch(user -> user.getId().equals(currentUser.getId()))
+                && !currentUser.getRole().name().equals("ADMIN")) {
             throw new UnauthorizedException("User not authorized to delete this device.");
         }
 
@@ -140,11 +179,16 @@ public class DeviceService {
     @Transactional
     public List<Device> getAllDevices() {
         final User currentUser = userService.getCurrentUser();
+
+        // Se o usuário for ADMIN, retorna todos os dispositivos
         if (currentUser.getRole().name().equals("ADMIN")) {
             return devicesRepository.findAll();
         }
-        return devicesRepository.findByUserId(currentUser.getId());
+
+        // Para outros usuários, retorna dispositivos associados ao ID do usuário
+        return devicesRepository.findByUsers_Id(currentUser.getId());
     }
+
 
     @Transactional
     public DeviceResponse getAllDevices(@NonNull final int pageNo, @NonNull final int pageSize, @NonNull final String sortBy, @NonNull final String sortDir, @NonNull final String deviceStatus,
@@ -164,7 +208,7 @@ public class DeviceService {
 
         Specification<Device> spec = Specification.where(DeviceSpecification.hasDeviceStatus(statusEnum))
                 .and(DeviceSpecification.hasIndustryType(industryType))
-                .and(DeviceSpecification.hasUserName(userName))
+                .and(DeviceSpecification.hasCreatedBy(userName))
                 .and(DeviceSpecification.hasDeviceName(deviceName))
                 .and(DeviceSpecification.hasDescription(description))
                 .and(DeviceSpecification.hasDeviceCode(deviceCode));
@@ -251,8 +295,9 @@ public class DeviceService {
         final Device device = devicesRepository.findByDeviceCode(deviceCode)
                 .orElseThrow(() -> new ResourceNotFoundException("Device not found"));
         final User currentUser = userService.getCurrentUser();
-        if (!device.getUser().getId().equals(currentUser.getId()) && !currentUser.getRole().name().equals("ADMIN")) {
-            throw new UnauthorizedException("User not authorized to view this device");
+        if (device.getUsers().stream().noneMatch(user -> user.getId().equals(currentUser.getId()))
+                && !currentUser.getRole().name().equals("ADMIN")) {
+            throw new UnauthorizedException("User not authorized to delete this device.");
         }
         if (Objects.equals(commandRequest.getOperation(), "Deactivate")) {
             device.setDeviceStatus(DeviceStatus.OFF);

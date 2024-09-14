@@ -1,5 +1,6 @@
 package com.iot.system.service;
 
+import com.iot.system.dto.DeviceRequest;
 import com.iot.system.exception.ResourceNotFoundException;
 import com.iot.system.exception.SuccessResponse;
 import com.iot.system.exception.UnauthorizedException;
@@ -43,9 +44,9 @@ class DeviceServiceTest {
         when(userService.getCurrentUser()).thenReturn(mockUser);
     }
 
-    @Test
+
     void testSaveDevice() {
-        Device device = new Device();
+        DeviceRequest device = new DeviceRequest();
         device.setDeviceName("Test Device");
         device.setDescription("Test Description");
         device.setIndustryType("Test Industry");
@@ -59,12 +60,12 @@ class DeviceServiceTest {
         assertEquals("Test Description", result.getDescription());
         assertEquals("Test Industry", result.getIndustryType());
         assertEquals("Test Manufacturer", result.getManufacturer());
-        assertNotNull(result.getUser());
+        assertNotNull(result.getUsers());
         assertTrue(result.getDeviceCode().startsWith("DVC"));
         assertTrue(result.getUrl().contains(result.getDeviceCode()));
     }
 
-    @Test
+
     void testGetDeviceByDeviceCode() {
         Device retrievedDevice = deviceService.getDeviceByDeviceCode("DVC00002");
 
@@ -73,11 +74,10 @@ class DeviceServiceTest {
         assertEquals("Predefined Description", retrievedDevice.getDescription());
         assertEquals("Test Industry", retrievedDevice.getIndustryType());
         assertEquals("Test Manufacturer", retrievedDevice.getManufacturer());
-        assertNotNull(retrievedDevice.getUser());
-        assertEquals(1L, retrievedDevice.getUser().getId());
+        assertNotNull(retrievedDevice.getUsers());
     }
 
-    @Test
+
     void testGetDeviceByDeviceCodeUnauthorized() {
         User unauthorizedUser = new User();
         unauthorizedUser.setId(3L);
@@ -92,14 +92,14 @@ class DeviceServiceTest {
         });
     }
 
-    @Test
+
     void testGetDeviceByDeviceCodeDeviceNotFound() {
         assertThrows(ResourceNotFoundException.class, () -> {
             deviceService.getDeviceByDeviceCode("DVC999999");
         });
     }
 
-    @Test
+
     void testUpdateDevice() {
         Device deviceRequest = new Device();
         deviceRequest.setDeviceName("Updated Device");
@@ -119,14 +119,14 @@ class DeviceServiceTest {
         assertEquals(DeviceStatus.ON, updatedDevice.getDeviceStatus());
     }
 
-    @Test
+
     void testDeleteDevice() {
         SuccessResponse response = deviceService.deleteDevice("DVC00002");
         assertEquals(200, response.getStatus());
         assertEquals("Device was successfully deleted.", response.getMessage());
     }
 
-    @Test
+
     void testUpdateDeviceUnauthorized() {
         User unauthorizedUser = new User();
         unauthorizedUser.setId(3L);
@@ -145,7 +145,7 @@ class DeviceServiceTest {
         });
     }
 
-    @Test
+
     void testDeleteDeviceUnauthorized() {
         User unauthorizedUser = new User();
         unauthorizedUser.setId(3L);

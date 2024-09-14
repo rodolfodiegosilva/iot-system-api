@@ -1,6 +1,8 @@
 package com.iot.system.user;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.iot.system.model.Device;
 import jakarta.persistence.*;
 import lombok.Data;
 import org.springframework.security.core.GrantedAuthority;
@@ -12,7 +14,9 @@ import java.util.List;
 @Entity
 @Data
 @Table(name = "users")
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"}) // Ignora propriedades do proxy Hibernate
 public class User implements UserDetails {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -26,6 +30,11 @@ public class User implements UserDetails {
 
     @Enumerated(EnumType.STRING)
     private Role role;
+
+    // Relacionamento ManyToMany com Device
+    @ManyToMany(mappedBy = "users", fetch = FetchType.LAZY)
+    @JsonIgnore // Evita a serialização cíclica
+    private List<Device> devices;
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
