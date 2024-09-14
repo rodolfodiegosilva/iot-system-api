@@ -44,6 +44,10 @@ class DeviceServiceTest {
         when(userService.getCurrentUser()).thenReturn(mockUser);
     }
 
+    @Test
+    void  test(){
+
+    }
 
     void testSaveDevice() {
         DeviceRequest device = new DeviceRequest();

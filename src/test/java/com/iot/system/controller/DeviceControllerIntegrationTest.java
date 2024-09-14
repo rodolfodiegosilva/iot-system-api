@@ -63,6 +63,10 @@ public class DeviceControllerIntegrationTest {
         mockDevice.setManufacturer("Test Manufacturer");
     }
 
+    @Test
+    void  test(){
+
+    }
 
     @WithMockUser(username = "usertest1", roles = {"USER"})
     public void testGetDeviceByDeviceCode() throws Exception {
