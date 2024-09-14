@@ -35,7 +35,7 @@ jobs:
         run: if [ ! -d "build/jacocoHtml" ]; then echo "Coverage reports directory does not exist"; exit 1; fi
 
       - name: Archive coverage reports
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: coverage-reports
           path: build/jacocoHtml
