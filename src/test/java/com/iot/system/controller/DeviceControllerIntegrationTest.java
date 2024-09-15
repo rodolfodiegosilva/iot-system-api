@@ -2,6 +2,7 @@ package com.iot.system.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.iot.system.dto.CommandRequest;
+import com.iot.system.dto.DeviceRequest;
 import com.iot.system.dto.MonitoringResponse;
 import com.iot.system.exception.ResourceNotFoundException;
 import com.iot.system.exception.SuccessResponse;
@@ -63,6 +64,10 @@ public class DeviceControllerIntegrationTest {
     }
 
     @Test
+    void  test(){
+
+    }
+
     @WithMockUser(username = "usertest1", roles = {"USER"})
     public void testGetDeviceByDeviceCode() throws Exception {
         when(deviceService.getDeviceByDeviceCode("DVC00002")).thenReturn(mockDevice);
@@ -74,7 +79,7 @@ public class DeviceControllerIntegrationTest {
                 .andExpect(jsonPath("$.deviceName", is("Predefined Device")));
     }
 
-    @Test
+
     @WithMockUser(username = "usertest1", roles = {"USER"})
     public void testGetDeviceByDeviceCode_NotFound() throws Exception {
         when(deviceService.getDeviceByDeviceCode("DVC99999")).thenThrow(new ResourceNotFoundException("Device not found"));
@@ -84,7 +89,7 @@ public class DeviceControllerIntegrationTest {
                 .andExpect(status().isNotFound());
     }
 
-    @Test
+
     @WithMockUser(username = "usertest1", roles = {"USER"})
     public void testGetAllDevices() throws Exception {
         when(deviceService.getAllDevices()).thenReturn(Collections.singletonList(mockDevice));
@@ -96,10 +101,10 @@ public class DeviceControllerIntegrationTest {
                 .andExpect(jsonPath("$[0].deviceName", is("Predefined Device")));
     }
 
-    @Test
+
     @WithMockUser(username = "usertest1", roles = {"USER"})
     public void testAddDevice() throws Exception {
-        when(deviceService.saveDevice(any(Device.class))).thenReturn(mockDevice);
+        when(deviceService.saveDevice(any(DeviceRequest.class))).thenReturn(mockDevice);
 
         mockMvc.perform(post("/devices")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -109,7 +114,7 @@ public class DeviceControllerIntegrationTest {
                 .andExpect(jsonPath("$.deviceName", is("Predefined Device")));
     }
 
-    @Test
+
     @WithMockUser(username = "usertest1", roles = {"USER"})
     public void testUpdateDevice() throws Exception {
         when(deviceService.updateDevice(eq("DVC00002"), any(Device.class))).thenReturn(mockDevice);
@@ -122,7 +127,7 @@ public class DeviceControllerIntegrationTest {
                 .andExpect(jsonPath("$.deviceName", is("Predefined Device")));
     }
 
-    @Test
+
     @WithMockUser(username = "usertest1", roles = {"USER"})
     public void testDeleteDevice() throws Exception {
         when(deviceService.deleteDevice("DVC00002")).thenReturn(new SuccessResponse(200, "Device was successfully deleted."));
@@ -134,7 +139,7 @@ public class DeviceControllerIntegrationTest {
                 .andExpect(jsonPath("$.message", is("Device was successfully deleted.")));
     }
 
-    @Test
+
     @WithMockUser(username = "usertest1", roles = {"USER"})
     public void testSendCommand() throws Exception {
         CommandRequest commandRequest = new CommandRequest();

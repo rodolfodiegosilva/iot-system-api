@@ -12,7 +12,8 @@ import java.util.Optional;
 
 @Repository
 public interface DevicesRepository extends JpaRepository<Device, Long>, JpaSpecificationExecutor<Device> {
-    List<Device> findByUserId(Long userId);
+
+    List<Device> findByUsers_Id(Long userId);
 
     void deleteByDeviceCode(String deviceCode);
 

@@ -2,12 +2,12 @@ package com.iot.system.controller;
 
 import com.iot.system.config.JwtAuthenticationFilter;
 import com.iot.system.dto.CommandRequest;
+import com.iot.system.dto.DeviceRequest;
 import com.iot.system.dto.DeviceResponse;
 import com.iot.system.dto.MonitoringResponse;
 import com.iot.system.exception.GlobalExceptionHandler;
 import com.iot.system.exception.SuccessResponse;
 import com.iot.system.model.Device;
-import com.iot.system.model.MonitoringStatus;
 import com.iot.system.service.DeviceService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -124,9 +124,11 @@ public class DeviceController {
                     examples = @ExampleObject(value = "{ \"status\": 401, \"message\": \"Unauthorized\", \"timestamp\": \"2024-07-11T18:04:42.4620788\" }")
             ))
     })
-    public ResponseEntity<Device> addDevice(@RequestBody Device device) {
-        return ResponseEntity.ok(deviceService.saveDevice(device));
+    public ResponseEntity<Device> addNewDevice(@RequestBody DeviceRequest deviceRequest) {
+        Device savedDevice = deviceService.saveDevice(deviceRequest);
+        return ResponseEntity.ok(savedDevice);
     }
+
 
     @PutMapping("/{deviceCode}")
     @Operation(summary = "Update a device", description = "Update an existing device")

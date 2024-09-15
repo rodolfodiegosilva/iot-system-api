@@ -2,7 +2,10 @@ package com.iot.system.repository;
 
 import com.iot.system.model.Device;
 import com.iot.system.model.DeviceStatus;
+import com.iot.system.user.User;
+import jakarta.persistence.criteria.Join;
 import org.springframework.data.jpa.domain.Specification;
+
 
 public class DeviceSpecification {
 
@@ -15,7 +18,13 @@ public class DeviceSpecification {
     }
 
     public static Specification<Device> hasUserName(String userName) {
-        return (root, query, builder) -> userName == null ? builder.conjunction() : builder.like(root.get("user").get("name"), "%" + userName + "%");
+        return (root, query, builder) -> {
+            if (userName == null || userName.isEmpty()) {
+                return builder.conjunction();
+            }
+            Join<Device, User> userJoin = root.join("users");
+            return builder.like(userJoin.get("name"), "%" + userName + "%");
+        };
     }
 
     public static Specification<Device> hasDeviceName(String deviceName) {
@@ -30,7 +39,17 @@ public class DeviceSpecification {
         return (root, query, builder) -> deviceCode == null ? builder.conjunction() : builder.like(root.get("deviceCode"), "%" + deviceCode + "%");
     }
 
+    public static Specification<Device> hasCreatedBy(String userName) {
+        return (root, query, builder) -> userName == null ? builder.conjunction() : builder.like(root.get("users").get("name"), "%" + userName + "%");
+    }
+
     public static Specification<Device> hasUserId(Long userId) {
-        return (root, query, builder) -> userId == null ? builder.conjunction() : builder.equal(root.get("user").get("id"), userId);
+        return (root, query, builder) -> {
+            if (userId == null) {
+                return builder.conjunction();
+            }
+            Join<Device, User> userJoin = root.join("users");
+            return builder.equal(userJoin.get("id"), userId);
+        };
     }
 }
