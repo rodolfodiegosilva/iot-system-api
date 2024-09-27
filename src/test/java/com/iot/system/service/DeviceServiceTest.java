@@ -45,7 +45,7 @@ class DeviceServiceTest {
     }
 
     @Test
-    void  test(){
+    void test() {
 
     }
 
@@ -105,7 +105,7 @@ class DeviceServiceTest {
 
 
     void testUpdateDevice() {
-        Device deviceRequest = new Device();
+        DeviceRequest deviceRequest = new DeviceRequest();
         deviceRequest.setDeviceName("Updated Device");
         deviceRequest.setDescription("Updated Description");
         deviceRequest.setIndustryType("Updated Industry");
@@ -141,7 +141,7 @@ class DeviceServiceTest {
         unauthorizedUser.setPassword("Abc@123");
         when(userService.getCurrentUser()).thenReturn(unauthorizedUser);
 
-        Device deviceRequest = new Device();
+        DeviceRequest deviceRequest = new DeviceRequest();
         deviceRequest.setDeviceName("Updated Device");
 
         assertThrows(UnauthorizedException.class, () -> {

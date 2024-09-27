@@ -8,12 +8,10 @@ import com.iot.system.exception.ResourceNotFoundException;
 import com.iot.system.exception.SuccessResponse;
 import com.iot.system.model.Device;
 import com.iot.system.model.Monitoring;
-import com.iot.system.model.MonitoringStatus;
 import com.iot.system.service.DeviceService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.runner.RunWith;
-import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -28,13 +26,11 @@ import java.util.Collections;
 import java.util.List;
 
 import static org.hamcrest.Matchers.is;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @RunWith(SpringRunner.class)
 @SpringBootTest
@@ -64,7 +60,7 @@ public class DeviceControllerIntegrationTest {
     }
 
     @Test
-    void  test(){
+    void test() {
 
     }
 
@@ -117,7 +113,7 @@ public class DeviceControllerIntegrationTest {
 
     @WithMockUser(username = "usertest1", roles = {"USER"})
     public void testUpdateDevice() throws Exception {
-        when(deviceService.updateDevice(eq("DVC00002"), any(Device.class))).thenReturn(mockDevice);
+        when(deviceService.updateDevice(eq("DVC00002"), any(DeviceRequest.class))).thenReturn(mockDevice);
 
         mockMvc.perform(put("/devices/DVC00002")
                         .contentType(MediaType.APPLICATION_JSON)
