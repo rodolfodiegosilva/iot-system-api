@@ -14,7 +14,7 @@ import java.util.List;
 @Entity
 @Data
 @Table(name = "users")
-@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"}) // Ignora propriedades do proxy Hibernate
+@JsonIgnoreProperties({ "hibernateLazyInitializer", "handler" }) // Ignora propriedades do proxy Hibernate
 public class User implements UserDetails {
 
     @Id
@@ -23,6 +23,7 @@ public class User implements UserDetails {
 
     private String name;
     private String email;
+    @Column(unique = true, nullable = false)
     private String username;
 
     @JsonIgnore

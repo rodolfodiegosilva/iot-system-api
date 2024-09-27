@@ -32,9 +32,9 @@ import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
-
 
 @Service
 public class DeviceService {
@@ -42,18 +42,18 @@ public class DeviceService {
     private static final Logger logger = LoggerFactory.getLogger(DeviceService.class);
 
     @Autowired
-    private DevicesRepository devicesRepository;
+    private final DevicesRepository devicesRepository;
 
     @Autowired
-    private MonitoringRepository monitoringRepository;
+    private final MonitoringRepository monitoringRepository;
 
     @Value("${url.environment}")
     private String urlEnvironment;
 
     private final UserService userService;
 
-
-    public DeviceService(final DevicesRepository devicesRepository, final MonitoringRepository monitoringRepository, final UserService userService) {
+    public DeviceService(final DevicesRepository devicesRepository, final MonitoringRepository monitoringRepository,
+            final UserService userService) {
         this.devicesRepository = devicesRepository;
         this.monitoringRepository = monitoringRepository;
         this.userService = userService;
@@ -61,116 +61,51 @@ public class DeviceService {
 
     @Transactional
     public Device saveDevice(@NonNull final DeviceRequest deviceRequest) {
-
         final User currentUser = userService.getCurrentUser();
+        final Device device = new Device();
 
-        Device device = new Device();
-        String generatedDeviceCode = generateDeviceCode();
-        device.setDeviceCode(generatedDeviceCode);
-        device.setDeviceName(deviceRequest.getDeviceName());
-        device.setDescription(deviceRequest.getDescription());
-        device.setIndustryType(deviceRequest.getIndustryType());
-        device.setManufacturer(deviceRequest.getManufacturer());
-        String deviceUrl = urlEnvironment + "/devices/command/" + device.getDeviceCode();
-        device.setUrl(deviceUrl);
-        device.setDeviceStatus(deviceRequest.getDeviceStatus());
+        device.setDeviceCode(generateDeviceCode());
+        setBasicDeviceFields(device, deviceRequest);
 
-        List<CommandDescription> commandDescriptions = deviceRequest.getCommands();
-
-        // Associe cada comando ao dispositivo antes de salvar
+        final List<CommandDescription> commandDescriptions = deviceRequest.getCommands();
         if (commandDescriptions != null) {
-            for (CommandDescription command : commandDescriptions) {
-                command.setDevice(device); // Associa o comando ao dispositivo
-            }
+            commandDescriptions.forEach(command -> command.setDevice(device)); // Associa cada comando ao dispositivo
             device.setCommands(commandDescriptions);
         }
 
         device.setCreatedBy(currentUser);
+        device.setUsers(associateUsers(deviceRequest.getUsernames(), currentUser));
 
-        List<User> users = new ArrayList<>();
-        users.add(currentUser);
-
-        if (deviceRequest.getUsernames() != null && !deviceRequest.getUsernames().isEmpty()) {
-            List<User> additionalUsers = userService.findUsersByUsernameList(deviceRequest.getUsernames());
-            users.addAll(additionalUsers);
-        }
-
-        device.setUsers(users);
-
-        // Salve o dispositivo, o JPA cuidará de persistir as entidades relacionadas
         return devicesRepository.save(device);
     }
-
-
 
     @Transactional
     public Device getDeviceByDeviceCode(@NonNull final String deviceCode) {
         final Device device = devicesRepository.findByDeviceCode(deviceCode)
                 .orElseThrow(() -> new ResourceNotFoundException("Device not found"));
-        final User currentUser = userService.getCurrentUser();
-        if (device.getUsers().stream().noneMatch(user -> user.getId().equals(currentUser.getId()))
-                && !currentUser.getRole().name().equals("ADMIN")) {
-            throw new UnauthorizedException("User not authorized to delete this device.");
-        }
+        validateUserAuthorization(device);
         return device;
     }
 
     @Transactional
-    public Device updateDevice(@NonNull final String deviceCode, @NonNull final Device deviceRequest) {
+    public Device updateDevice(@NonNull final String deviceCode, @NonNull final DeviceRequest deviceRequest) {
         final Device device = devicesRepository.findByDeviceCode(deviceCode)
                 .orElseThrow(() -> new ResourceNotFoundException("Device not found"));
-        final User currentUser = userService.getCurrentUser();
-        if (device.getUsers().stream().noneMatch(user -> user.getId().equals(currentUser.getId()))
-                && !currentUser.getRole().name().equals("ADMIN")) {
-            throw new UnauthorizedException("User not authorized to delete this device.");
-        }
 
-        device.setDeviceName(deviceRequest.getDeviceName());
-        device.setDescription(deviceRequest.getDescription());
-        device.setIndustryType(deviceRequest.getIndustryType());
-        device.setManufacturer(deviceRequest.getManufacturer());
-        device.setUrl(urlEnvironment + "/devices/command/" + device.getDeviceCode());
-        device.setDeviceStatus(deviceRequest.getDeviceStatus());
-        device.getCommands().clear();
-        final Device updatedDevice = devicesRepository.save(device);
+        validateUserAuthorization(device);
 
-        deviceRequest.getCommands().forEach(commandDescription -> {
-            final CommandDescription newCommandDescription = new CommandDescription();
-            newCommandDescription.setOperation(commandDescription.getOperation());
-            newCommandDescription.setDescription(commandDescription.getDescription());
-            newCommandDescription.setResult(commandDescription.getResult());
-            newCommandDescription.setFormat(commandDescription.getFormat());
-            newCommandDescription.setDevice(updatedDevice);
+        setBasicDeviceFields(device, deviceRequest);
+        device.setUsers(associateUsers(deviceRequest.getUsernames(), userService.getCurrentUser()));
+        updateDeviceCommands(device, deviceRequest.getCommands());
 
-            final Command newCommand = new Command();
-            newCommand.setCommand(commandDescription.getCommand().getCommand());
-
-            final List<Parameter> newParameters = commandDescription.getCommand().getParameters().stream().map(parameter -> {
-                final Parameter newParameter = new Parameter();
-                newParameter.setName(parameter.getName());
-                newParameter.setDescription(parameter.getDescription());
-                newParameter.setCommand(newCommand);
-                return newParameter;
-            }).collect(Collectors.toList());
-
-            newCommand.setParameters(newParameters);
-            newCommandDescription.setCommand(newCommand);
-
-            updatedDevice.getCommands().add(newCommandDescription);
-        });
-
-        return devicesRepository.save(updatedDevice);
+        return devicesRepository.save(device);
     }
 
     @Transactional
     public SuccessResponse deleteDevice(@NonNull final String deviceCode) {
         final Device device = devicesRepository.findByDeviceCode(deviceCode)
                 .orElseThrow(() -> new ResourceNotFoundException("Device not found"));
-        final User currentUser = userService.getCurrentUser();
-        if (device.getUsers().stream().noneMatch(user -> user.getId().equals(currentUser.getId()))
-                && !currentUser.getRole().name().equals("ADMIN")) {
-            throw new UnauthorizedException("User not authorized to delete this device.");
-        }
+        validateUserAuthorization(device);
 
         devicesRepository.deleteByDeviceCode(deviceCode);
         return new SuccessResponse(200, "Device was successfully deleted.");
@@ -180,46 +115,211 @@ public class DeviceService {
     public List<Device> getAllDevices() {
         final User currentUser = userService.getCurrentUser();
 
-        // Se o usuário for ADMIN, retorna todos os dispositivos
         if (currentUser.getRole().name().equals("ADMIN")) {
             return devicesRepository.findAll();
         }
-
-        // Para outros usuários, retorna dispositivos associados ao ID do usuário
         return devicesRepository.findByUsers_Id(currentUser.getId());
     }
 
-
     @Transactional
-    public DeviceResponse getAllDevices(@NonNull final int pageNo, @NonNull final int pageSize, @NonNull final String sortBy, @NonNull final String sortDir, @NonNull final String deviceStatus,
-                                        @NonNull final String industryType, @NonNull final String deviceName, @NonNull final String userName, @NonNull final String description, @NonNull final String deviceCode) {
-        Pageable pageable = PageRequest.of(pageNo, pageSize, Sort.by(Sort.Direction.fromString(sortDir), sortBy));
+    public DeviceResponse getAllDevices(@NonNull final int pageNo, @NonNull final int pageSize,
+            @NonNull final String sortBy, @NonNull final String sortDir,
+            @NonNull final String deviceStatus, @NonNull final String industryType, @NonNull final String deviceName,
+            @NonNull final String userName, @NonNull final String description, @NonNull final String deviceCode) {
+        final Pageable pageable = PageRequest.of(pageNo, pageSize, Sort.by(Sort.Direction.fromString(sortDir), sortBy));
         final User currentUser = userService.getCurrentUser();
 
-        DeviceStatus statusEnum = null;
-        if (deviceStatus != null && !deviceStatus.isEmpty()) {
-            try {
-                statusEnum = DeviceStatus.valueOf(deviceStatus.toUpperCase());
-            } catch (IllegalArgumentException e) {
-                logger.error("Invalid DeviceStatus value: {}", deviceStatus, e);
-                throw new IllegalArgumentException("Invalid DeviceStatus value: " + deviceStatus);
-            }
+        Specification<Device> spec = createDeviceSpecification(deviceStatus, industryType, deviceName, userName,
+                description, deviceCode);
+        if (!currentUser.getRole().name().equals("ADMIN")) {
+            spec = spec.and(DeviceSpecification.hasUserId(currentUser.getId()));
         }
 
-        Specification<Device> spec = Specification.where(DeviceSpecification.hasDeviceStatus(statusEnum))
+        final Page<Device> devices = devicesRepository.findAll(spec, pageable);
+        return buildDeviceResponse(devices);
+    }
+
+    @Transactional
+    public MonitoringResponse getMonitoringsByDeviceCode(@NonNull final String deviceCode, @NonNull final int pageNo,
+            @NonNull final int pageSize,
+            @NonNull final String sortBy, @NonNull final String sortDir, @NonNull final String monitoringStatus,
+            @NonNull final String monitoringCode, @NonNull final String userName, @NonNull final String deviceName,
+            @NonNull final String createdAt, @NonNull final String updatedAt) {
+        final Pageable pageable = PageRequest.of(pageNo, pageSize,
+                Sort.Direction.fromString(sortDir).equals(Sort.Direction.ASC) ? Sort.by(sortBy).ascending()
+                        : Sort.by(sortBy).descending());
+
+        final Specification<Monitoring> spec = createMonitoringSpecification(deviceCode, monitoringStatus,
+                monitoringCode, userName, deviceName, createdAt, updatedAt);
+        final Page<Monitoring> monitorings = monitoringRepository.findAll(spec, pageable);
+        return buildMonitoringResponse(monitorings);
+    }
+
+    @Transactional
+    public Device sendCommand(@NonNull final String deviceCode, @NonNull final CommandRequest commandRequest) {
+        final Device device = devicesRepository.findByDeviceCode(deviceCode)
+                .orElseThrow(() -> new ResourceNotFoundException("Device not found"));
+        validateUserAuthorization(device);
+
+        if (Objects.equals(commandRequest.getOperation(), "Deactivate")) {
+            device.setDeviceStatus(DeviceStatus.OFF);
+        } else if (Objects.equals(commandRequest.getOperation(), "Activate")) {
+            device.setDeviceStatus(DeviceStatus.ON);
+        }
+
+        return devicesRepository.save(device);
+    }
+
+    // Métodos private estão abaixo
+
+    private void setBasicDeviceFields(final Device device, final DeviceRequest deviceRequest) {
+        device.setDeviceName(deviceRequest.getDeviceName());
+        device.setDescription(deviceRequest.getDescription());
+        device.setIndustryType(deviceRequest.getIndustryType());
+        device.setManufacturer(deviceRequest.getManufacturer());
+        device.setUrl(urlEnvironment + "/devices/command/" + device.getDeviceCode());
+        device.setDeviceStatus(deviceRequest.getDeviceStatus());
+    }
+
+    private List<User> associateUsers(final List<String> usernames, final User currentUser) {
+        final List<User> users = new ArrayList<>();
+        users.add(currentUser);
+        if (usernames != null && !usernames.isEmpty()) {
+            users.addAll(getUsers(usernames));
+        }
+        return users;
+    }
+
+    private List<User> getUsers(final List<String> usernames) {
+        return userService.findUsersByUsernameList(usernames);
+    }
+
+    private void validateUserAuthorization(final Device device) {
+        final User currentUser = userService.getCurrentUser();
+        final boolean isAdmin = currentUser.getRole().name().equals("ADMIN");
+        final boolean isUserAuthorized = device.getUsers().stream()
+                .anyMatch(user -> user.getId().equals(currentUser.getId()));
+
+        if (!isAdmin && !isUserAuthorized) {
+            throw new UnauthorizedException("User not authorized to access this device.");
+        }
+    }
+
+    private void updateDeviceCommands(final Device device, final List<CommandDescription> commandDescriptions) {
+        final Map<Long, CommandDescription> existingCommands = device.getCommands().stream()
+                .collect(Collectors.toMap(CommandDescription::getId, command -> command));
+
+        commandDescriptions.forEach(commandDescriptionRequest -> {
+            final CommandDescription existingCommand = existingCommands.get(commandDescriptionRequest.getId());
+            if (existingCommand != null) {
+                updateExistingCommand(existingCommand, commandDescriptionRequest);
+            } else {
+                device.getCommands().add(createNewCommandDescription(commandDescriptionRequest, device));
+            }
+        });
+
+        final List<Long> updatedCommandIds = commandDescriptions.stream()
+                .map(CommandDescription::getId)
+                .collect(Collectors.toList());
+        device.getCommands().removeIf(command -> !updatedCommandIds.contains(command.getId()));
+    }
+
+    private CommandDescription createNewCommandDescription(final CommandDescription commandDescriptionRequest,
+            final Device device) {
+        final CommandDescription newCommandDescription = new CommandDescription();
+        newCommandDescription.setOperation(commandDescriptionRequest.getOperation());
+        newCommandDescription.setDescription(commandDescriptionRequest.getDescription());
+        newCommandDescription.setResult(commandDescriptionRequest.getResult());
+        newCommandDescription.setFormat(commandDescriptionRequest.getFormat());
+        newCommandDescription.setDevice(device);
+
+        newCommandDescription.setCommand(createNewCommand(commandDescriptionRequest.getCommand()));
+        return newCommandDescription;
+    }
+
+    // Implementação do método createNewCommand
+    private Command createNewCommand(final Command commandRequest) {
+        final Command newCommand = new Command();
+        newCommand.setCommand(commandRequest.getCommand());
+
+        final List<Parameter> newParameters = commandRequest.getParameters().stream()
+                .map(param -> {
+                    final Parameter newParam = new Parameter();
+                    newParam.setName(param.getName());
+                    newParam.setDescription(param.getDescription());
+                    newParam.setCommand(newCommand);
+                    return newParam;
+                }).collect(Collectors.toList());
+
+        newCommand.setParameters(newParameters);
+        return newCommand;
+    }
+
+    private void updateExistingCommand(final CommandDescription existingCommand,
+            final CommandDescription commandRequest) {
+        existingCommand.setOperation(commandRequest.getOperation());
+        existingCommand.setDescription(commandRequest.getDescription());
+        existingCommand.setResult(commandRequest.getResult());
+        existingCommand.setFormat(commandRequest.getFormat());
+        updateCommand(existingCommand.getCommand(), commandRequest.getCommand());
+    }
+
+    private void updateCommand(final Command existingCommand, final Command commandRequest) {
+        existingCommand.setCommand(commandRequest.getCommand());
+
+        final Map<Long, Parameter> existingParameters = existingCommand.getParameters().stream()
+                .collect(Collectors.toMap(Parameter::getId, parameter -> parameter));
+
+        commandRequest.getParameters().forEach(parameterRequest -> {
+            final Parameter existingParameter = existingParameters.get(parameterRequest.getId());
+            if (existingParameter != null) {
+                existingParameter.setName(parameterRequest.getName());
+                existingParameter.setDescription(parameterRequest.getDescription());
+            } else {
+                existingCommand.getParameters().add(createNewParameter(parameterRequest, existingCommand));
+            }
+        });
+
+        final List<Long> updatedParameterIds = commandRequest.getParameters().stream()
+                .map(Parameter::getId)
+                .collect(Collectors.toList());
+        existingCommand.getParameters().removeIf(parameter -> !updatedParameterIds.contains(parameter.getId()));
+    }
+
+    private Parameter createNewParameter(final Parameter parameterRequest, final Command command) {
+        final Parameter newParameter = new Parameter();
+        newParameter.setName(parameterRequest.getName());
+        newParameter.setDescription(parameterRequest.getDescription());
+        newParameter.setCommand(command);
+        return newParameter;
+    }
+
+    private Specification<Device> createDeviceSpecification(final String deviceStatus, final String industryType,
+            final String deviceName,
+            final String userName, final String description, final String deviceCode) {
+        final DeviceStatus statusEnum = parseDeviceStatus(deviceStatus);
+        return Specification.where(DeviceSpecification.hasDeviceStatus(statusEnum))
                 .and(DeviceSpecification.hasIndustryType(industryType))
                 .and(DeviceSpecification.hasCreatedBy(userName))
                 .and(DeviceSpecification.hasDeviceName(deviceName))
                 .and(DeviceSpecification.hasDescription(description))
                 .and(DeviceSpecification.hasDeviceCode(deviceCode));
+    }
 
-        if (!currentUser.getRole().name().equals("ADMIN")) {
-            spec = spec.and(DeviceSpecification.hasUserId(currentUser.getId()));
+    private DeviceStatus parseDeviceStatus(final String deviceStatus) {
+        if (deviceStatus != null && !deviceStatus.isEmpty()) {
+            try {
+                return DeviceStatus.valueOf(deviceStatus.toUpperCase());
+            } catch (IllegalArgumentException e) {
+                logger.error("Invalid DeviceStatus value: {}", deviceStatus, e);
+                throw new IllegalArgumentException("Invalid DeviceStatus value: " + deviceStatus);
+            }
         }
+        return null;
+    }
 
-        Page<Device> devices = devicesRepository.findAll(spec, pageable);
-        List<Device> content = devices.getContent();
-
+    private DeviceResponse buildDeviceResponse(final Page<Device> devices) {
+        final List<Device> content = devices.getContent();
         return DeviceResponse.builder()
                 .content(content)
                 .pageNo(devices.getNumber())
@@ -230,32 +330,14 @@ public class DeviceService {
                 .build();
     }
 
-    @Transactional
-    public MonitoringResponse getMonitoringsByDeviceCode(@NonNull final String deviceCode, @NonNull final int pageNo, @NonNull final int pageSize, @NonNull final String sortBy,
-                                                         @NonNull final String sortDir,
-                                                         @NonNull final String monitoringStatus, @NonNull final String monitoringCode, @NonNull final String userName, @NonNull final String deviceName,
-                                                         @NonNull final String createdAt, @NonNull final String updatedAt) {
-        logger.info("Fetching monitorings for deviceCode: {}", deviceCode);
-
-        Pageable pageable = PageRequest.of(pageNo, pageSize,
-                sortDir.equalsIgnoreCase(Sort.Direction.ASC.name()) ? Sort.by(sortBy).ascending()
-                        : Sort.by(sortBy).descending());
-        final User currentUser = userService.getCurrentUser();
-
+    private Specification<Monitoring> createMonitoringSpecification(final String deviceCode,
+            final String monitoringStatus, final String monitoringCode,
+            final String userName, final String deviceName, final String createdAt, final String updatedAt) {
+        final MonitoringStatus statusEnum = parseMonitoringStatus(monitoringStatus);
         final LocalDateTime[] createdAtRange = parseDateRange(createdAt);
         final LocalDateTime[] updatedAtRange = parseDateRange(updatedAt);
 
-        MonitoringStatus statusEnum = null;
-        if (monitoringStatus != null && !monitoringStatus.isEmpty()) {
-            try {
-                statusEnum = MonitoringStatus.valueOf(monitoringStatus.toUpperCase());
-            } catch (IllegalArgumentException e) {
-                logger.error("Invalid MonitoringStatus value: {}", monitoringStatus, e);
-                throw new IllegalArgumentException("Invalid MonitoringStatus value: " + monitoringStatus);
-            }
-        }
-
-        Specification<Monitoring> spec = Specification.where(MonitoringSpecification.hasDeviceCode(deviceCode))
+        return Specification.where(MonitoringSpecification.hasDeviceCode(deviceCode))
                 .and(MonitoringSpecification.hasMonitoringStatus(statusEnum))
                 .and(MonitoringSpecification.hasMonitoringCode(monitoringCode))
                 .and(MonitoringSpecification.hasUserName(userName))
@@ -264,22 +346,22 @@ public class DeviceService {
                 .and(MonitoringSpecification.createdAtBefore(createdAtRange[1]))
                 .and(MonitoringSpecification.updatedAtAfter(updatedAtRange[0]))
                 .and(MonitoringSpecification.updatedAtBefore(updatedAtRange[1]));
+    }
 
-        Page<Monitoring> monitorings;
-
-        if (currentUser.getRole().name().equals("ADMIN")) {
-            logger.info("User is ADMIN");
-            monitorings = monitoringRepository.findAll(spec, pageable);
-        } else {
-            logger.info("User is not ADMIN, adding user filter");
-            spec = spec.and((root, query, builder) -> builder.equal(root.get("user").get("id"), currentUser.getId()));
-            monitorings = monitoringRepository.findAll(spec, pageable);
+    private MonitoringStatus parseMonitoringStatus(final String monitoringStatus) {
+        if (monitoringStatus != null && !monitoringStatus.isEmpty()) {
+            try {
+                return MonitoringStatus.valueOf(monitoringStatus.toUpperCase());
+            } catch (IllegalArgumentException e) {
+                logger.error("Invalid MonitoringStatus value: {}", monitoringStatus, e);
+                throw new IllegalArgumentException("Invalid MonitoringStatus value: " + monitoringStatus);
+            }
         }
+        return null;
+    }
 
-        logger.info("Found {} monitorings", monitorings.getTotalElements());
-
+    private MonitoringResponse buildMonitoringResponse(final Page<Monitoring> monitorings) {
         final List<Monitoring> content = monitorings.getContent();
-
         return MonitoringResponse.builder()
                 .content(content)
                 .pageNo(monitorings.getNumber())
@@ -288,23 +370,6 @@ public class DeviceService {
                 .totalPages(monitorings.getTotalPages())
                 .last(monitorings.isLast())
                 .build();
-    }
-
-    @Transactional
-    public Device sendCommand(@NonNull final String deviceCode, @NonNull final CommandRequest commandRequest) {
-        final Device device = devicesRepository.findByDeviceCode(deviceCode)
-                .orElseThrow(() -> new ResourceNotFoundException("Device not found"));
-        final User currentUser = userService.getCurrentUser();
-        if (device.getUsers().stream().noneMatch(user -> user.getId().equals(currentUser.getId()))
-                && !currentUser.getRole().name().equals("ADMIN")) {
-            throw new UnauthorizedException("User not authorized to delete this device.");
-        }
-        if (Objects.equals(commandRequest.getOperation(), "Deactivate")) {
-            device.setDeviceStatus(DeviceStatus.OFF);
-        } else if (Objects.equals(commandRequest.getOperation(), "Activate")) {
-            device.setDeviceStatus(DeviceStatus.ON);
-        }
-        return devicesRepository.save(device);
     }
 
     private LocalDateTime[] parseDateRange(@NonNull final String dateRange) {
@@ -326,7 +391,7 @@ public class DeviceService {
                 logger.error("Error parsing date range: {}", dateRange, e);
             }
         }
-        return new LocalDateTime[]{start, end};
+        return new LocalDateTime[] { start, end };
     }
 
     private String generateDeviceCode() {
