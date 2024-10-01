@@ -53,7 +53,7 @@ public class DeviceService {
     private final UserService userService;
 
     public DeviceService(final DevicesRepository devicesRepository, final MonitoringRepository monitoringRepository,
-            final UserService userService) {
+                         final UserService userService) {
         this.devicesRepository = devicesRepository;
         this.monitoringRepository = monitoringRepository;
         this.userService = userService;
@@ -123,9 +123,9 @@ public class DeviceService {
 
     @Transactional
     public DeviceResponse getAllDevices(@NonNull final int pageNo, @NonNull final int pageSize,
-            @NonNull final String sortBy, @NonNull final String sortDir,
-            @NonNull final String deviceStatus, @NonNull final String industryType, @NonNull final String deviceName,
-            @NonNull final String userName, @NonNull final String description, @NonNull final String deviceCode) {
+                                        @NonNull final String sortBy, @NonNull final String sortDir,
+                                        @NonNull final String deviceStatus, @NonNull final String industryType, @NonNull final String deviceName,
+                                        @NonNull final String userName, @NonNull final String description, @NonNull final String deviceCode) {
         final Pageable pageable = PageRequest.of(pageNo, pageSize, Sort.by(Sort.Direction.fromString(sortDir), sortBy));
         final User currentUser = userService.getCurrentUser();
 
@@ -141,10 +141,10 @@ public class DeviceService {
 
     @Transactional
     public MonitoringResponse getMonitoringsByDeviceCode(@NonNull final String deviceCode, @NonNull final int pageNo,
-            @NonNull final int pageSize,
-            @NonNull final String sortBy, @NonNull final String sortDir, @NonNull final String monitoringStatus,
-            @NonNull final String monitoringCode, @NonNull final String userName, @NonNull final String deviceName,
-            @NonNull final String createdAt, @NonNull final String updatedAt) {
+                                                         @NonNull final int pageSize,
+                                                         @NonNull final String sortBy, @NonNull final String sortDir, @NonNull final String monitoringStatus,
+                                                         @NonNull final String monitoringCode, @NonNull final String userName, @NonNull final String deviceName,
+                                                         @NonNull final String createdAt, @NonNull final String updatedAt) {
         final Pageable pageable = PageRequest.of(pageNo, pageSize,
                 Sort.Direction.fromString(sortDir).equals(Sort.Direction.ASC) ? Sort.by(sortBy).ascending()
                         : Sort.by(sortBy).descending());
@@ -170,7 +170,18 @@ public class DeviceService {
         return devicesRepository.save(device);
     }
 
-    // Métodos private estão abaixo
+    @Transactional
+    public Monitoring getMonitoringByDeviceCode(@NonNull final String deviceCode) {
+
+        Device device = devicesRepository.findByDeviceCode(deviceCode)
+                .orElseThrow(() -> new ResourceNotFoundException("Device not found with code: " + deviceCode));
+        validateUserAuthorization(device);
+
+        return monitoringRepository.findByDevice(device)
+                .orElseThrow(() -> new ResourceNotFoundException("Monitoring not found for deviceCode: " + deviceCode));
+
+
+    }
 
     private void setBasicDeviceFields(final Device device, final DeviceRequest deviceRequest) {
         device.setDeviceName(deviceRequest.getDeviceName());
@@ -220,12 +231,12 @@ public class DeviceService {
 
         final List<Long> updatedCommandIds = commandDescriptions.stream()
                 .map(CommandDescription::getId)
-                .collect(Collectors.toList());
+                .toList();
         device.getCommands().removeIf(command -> !updatedCommandIds.contains(command.getId()));
     }
 
     private CommandDescription createNewCommandDescription(final CommandDescription commandDescriptionRequest,
-            final Device device) {
+                                                           final Device device) {
         final CommandDescription newCommandDescription = new CommandDescription();
         newCommandDescription.setOperation(commandDescriptionRequest.getOperation());
         newCommandDescription.setDescription(commandDescriptionRequest.getDescription());
@@ -237,7 +248,7 @@ public class DeviceService {
         return newCommandDescription;
     }
 
-    // Implementação do método createNewCommand
+
     private Command createNewCommand(final Command commandRequest) {
         final Command newCommand = new Command();
         newCommand.setCommand(commandRequest.getCommand());
@@ -256,7 +267,7 @@ public class DeviceService {
     }
 
     private void updateExistingCommand(final CommandDescription existingCommand,
-            final CommandDescription commandRequest) {
+                                       final CommandDescription commandRequest) {
         existingCommand.setOperation(commandRequest.getOperation());
         existingCommand.setDescription(commandRequest.getDescription());
         existingCommand.setResult(commandRequest.getResult());
@@ -282,7 +293,7 @@ public class DeviceService {
 
         final List<Long> updatedParameterIds = commandRequest.getParameters().stream()
                 .map(Parameter::getId)
-                .collect(Collectors.toList());
+                .toList();
         existingCommand.getParameters().removeIf(parameter -> !updatedParameterIds.contains(parameter.getId()));
     }
 
@@ -295,8 +306,8 @@ public class DeviceService {
     }
 
     private Specification<Device> createDeviceSpecification(final String deviceStatus, final String industryType,
-            final String deviceName,
-            final String userName, final String description, final String deviceCode) {
+                                                            final String deviceName,
+                                                            final String userName, final String description, final String deviceCode) {
         final DeviceStatus statusEnum = parseDeviceStatus(deviceStatus);
         return Specification.where(DeviceSpecification.hasDeviceStatus(statusEnum))
                 .and(DeviceSpecification.hasIndustryType(industryType))
@@ -331,8 +342,8 @@ public class DeviceService {
     }
 
     private Specification<Monitoring> createMonitoringSpecification(final String deviceCode,
-            final String monitoringStatus, final String monitoringCode,
-            final String userName, final String deviceName, final String createdAt, final String updatedAt) {
+                                                                    final String monitoringStatus, final String monitoringCode,
+                                                                    final String userName, final String deviceName, final String createdAt, final String updatedAt) {
         final MonitoringStatus statusEnum = parseMonitoringStatus(monitoringStatus);
         final LocalDateTime[] createdAtRange = parseDateRange(createdAt);
         final LocalDateTime[] updatedAtRange = parseDateRange(updatedAt);
@@ -391,7 +402,7 @@ public class DeviceService {
                 logger.error("Error parsing date range: {}", dateRange, e);
             }
         }
-        return new LocalDateTime[] { start, end };
+        return new LocalDateTime[]{start, end};
     }
 
     private String generateDeviceCode() {
