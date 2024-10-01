@@ -8,6 +8,7 @@ import com.iot.system.dto.MonitoringResponse;
 import com.iot.system.exception.GlobalExceptionHandler;
 import com.iot.system.exception.SuccessResponse;
 import com.iot.system.model.Device;
+import com.iot.system.model.Monitoring;
 import com.iot.system.service.DeviceService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -136,7 +137,7 @@ public class DeviceController {
                 return ResponseEntity.ok(response);
         }
 
-        @GetMapping("/{deviceCode}/monitorings")
+        @GetMapping("/{deviceCode}/monitorings/pageable")
         @Operation(summary = "Get paginated monitorings for a device", description = "Retrieve a paginated list of monitorings for a specific device by its device code")
         @ApiResponses(value = {
                         @ApiResponse(responseCode = "200", description = "Successfully retrieved monitorings"),
@@ -158,4 +159,18 @@ public class DeviceController {
                 return ResponseEntity.ok(deviceService.getMonitoringsByDeviceCode(deviceCode, pageNo, pageSize, sortBy,
                                 sortDir, monitoringStatus, monitoringCode, userName, deviceName, createdAt, updatedAt));
         }
+
+        @GetMapping("/{deviceCode}/monitoring")
+        @Operation(summary = "Get monitoring for a device", description = "Retrieve a specific monitoring for a device by its device code")
+        @ApiResponses(value = {
+                @ApiResponse(responseCode = "200", description = "Successfully retrieved the monitoring"),
+                @ApiResponse(responseCode = "403", description = "Forbidden - User not authorized to view the monitoring", content = @Content(schema = @Schema(implementation = GlobalExceptionHandler.ErrorResponse.class), examples = @ExampleObject(value = "{ \"status\": 403, \"message\": \"Forbidden\", \"timestamp\": \"2024-07-11T18:04:42.4620788\" }"))),
+                @ApiResponse(responseCode = "404", description = "Monitoring or device not found", content = @Content(schema = @Schema(implementation = GlobalExceptionHandler.ErrorResponse.class), examples = @ExampleObject(value = "{ \"status\": 404\", \"message\": \"Device or monitoring not found\", \"timestamp\": \"2024-07-11T18:04:42.4620788\" }")))
+        })
+        public ResponseEntity<Monitoring> getMonitoringByDeviceCode(
+                @PathVariable String deviceCode) {
+
+                return ResponseEntity.ok(deviceService.getMonitoringByDeviceCode(deviceCode));
+        }
+
 }

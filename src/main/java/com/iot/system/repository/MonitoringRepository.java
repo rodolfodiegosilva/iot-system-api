@@ -1,5 +1,6 @@
 package com.iot.system.repository;
 
+import com.iot.system.model.Device;
 import com.iot.system.model.Monitoring;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
@@ -21,4 +22,7 @@ public interface MonitoringRepository extends JpaRepository<Monitoring, Long>, J
     Optional<Monitoring> findTopByOrderByCreatedAtDesc();
 
     boolean existsByMonitoringCode(String monitoringCode);
+
+    Optional<Monitoring> findByDevice(Device device);
+
 }
