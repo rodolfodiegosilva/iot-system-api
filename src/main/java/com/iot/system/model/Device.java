@@ -1,14 +1,14 @@
 package com.iot.system.model;
 
+import com.fasterxml.jackson.annotation.JsonBackReference;
+import com.fasterxml.jackson.annotation.JsonManagedReference;
 import com.iot.system.user.User;
 import jakarta.persistence.*;
-import jakarta.validation.constraints.NotEmpty;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.ToString;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
-import com.fasterxml.jackson.annotation.JsonManagedReference;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -47,7 +47,10 @@ public class Device {
     @EqualsAndHashCode.Exclude
     private List<CommandDescription> commands;
 
-    // ManyToMany com Users
+    @OneToOne(mappedBy = "device", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonBackReference 
+    private Monitoring monitoring;
+
     @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(
             name = "device_users",

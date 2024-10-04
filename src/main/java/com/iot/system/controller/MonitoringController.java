@@ -16,7 +16,6 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -37,7 +36,6 @@ public class MonitoringController {
                     examples = @ExampleObject(value = "{ \"status\": 401, \"message\": \"Unauthorized\", \"timestamp\": \"2024-07-11T18:04:42.4620788\" }")
             ))
     })
-    @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
     public List<Monitoring> getAllMonitorings() {
         return monitoringService.getAllMonitorings();
     }
@@ -55,7 +53,6 @@ public class MonitoringController {
                     examples = @ExampleObject(value = "{ \"status\": 401, \"message\": \"Unauthorized\", \"timestamp\": \"2024-07-11T18:04:42.4620788\" }")
             ))
     })
-    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<List<Monitoring>> createMonitoring(@RequestBody List<MonitoringRequest> monitoringRequests) {
         return ResponseEntity.ok(monitoringService.createMonitoring(monitoringRequests));
     }
@@ -73,7 +70,6 @@ public class MonitoringController {
                     examples = @ExampleObject(value = "{ \"status\": 404, \"message\": \"Monitoring not found\", \"timestamp\": \"2024-07-11T18:04:42.4620788\" }")
             ))
     })
-    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Monitoring> getMonitoring(@PathVariable String monitoringCode) {
         return ResponseEntity.ok(monitoringService.getMonitoringByCode(monitoringCode));
     }
@@ -91,7 +87,6 @@ public class MonitoringController {
                     examples = @ExampleObject(value = "{ \"status\": 404, \"message\": \"Device not found\", \"timestamp\": \"2024-07-11T18:04:42.4620788\" }")
             ))
     })
-    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<MonitoringResponse> getAllMonitoring(
             @RequestParam(value = "pageNo", defaultValue = "0", required = false) int pageNo,
             @RequestParam(value = "pageSize", defaultValue = "10", required = false) int pageSize,
@@ -121,7 +116,6 @@ public class MonitoringController {
                     examples = @ExampleObject(value = "{ \"status\": 404, \"message\": \"Monitoring not found\", \"timestamp\": \"2024-07-11T18:04:42.4620788\" }")
             ))
     })
-    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Monitoring> updateMonitoring(@PathVariable String monitoringCode, @RequestBody MonitoringRequest monitoringRequest) {
         return ResponseEntity.ok(monitoringService.updateMonitoring(monitoringCode, monitoringRequest));
     }
@@ -139,7 +133,6 @@ public class MonitoringController {
                     examples = @ExampleObject(value = "{ \"status\": 404, \"message\": \"Monitoring not found\", \"timestamp\": \"2024-07-11T18:04:42.4620788\" }")
             ))
     })
-    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<SuccessResponse> deleteMonitoring(@PathVariable String monitoringCode) {
         SuccessResponse response = monitoringService.deleteMonitoring(monitoringCode);
         return ResponseEntity.ok(response);
@@ -158,7 +151,6 @@ public class MonitoringController {
                     examples = @ExampleObject(value = "{ \"status\": 404, \"message\": \"Monitoring not found\", \"timestamp\": \"2024-07-11T18:04:42.4620788\" }")
             ))
     })
-    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Void> deleteMultipleMonitoring(@RequestBody List<String> monitoringCodes) {
         monitoringService.deleteMultipleMonitoring(monitoringCodes);
         return ResponseEntity.noContent().build();
