@@ -14,6 +14,8 @@ import com.iot.system.repository.MonitoringSpecification;
 import com.iot.system.user.User;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -27,10 +29,13 @@ import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
 public class MonitoringService {
+    private static final Logger logger = LoggerFactory.getLogger(MonitoringService.class);
+
 
     private final MonitoringRepository monitoringRepository;
     private final DevicesRepository devicesRepository;
@@ -41,7 +46,7 @@ public class MonitoringService {
         if (currentUser.getRole().name().equals("ADMIN")) {
             return monitoringRepository.findAll();
         }
-        return monitoringRepository.findByUserId(currentUser.getId());
+        return monitoringRepository.findByUsers_Id(currentUser.getId());
     }
 
     public List<Monitoring> createMonitoring(final List<MonitoringRequest> monitoringRequests) {
@@ -54,11 +59,17 @@ public class MonitoringService {
             int lastNumber = Integer.parseInt(lastMonitoringCode.substring(3));
 
             for (final MonitoringRequest request : monitoringRequests) {
+
                 final Device device = devicesRepository.findByDeviceCode(request.getDeviceCode())
                         .orElseThrow(() -> new ResourceNotFoundException("Device with code " + request.getDeviceCode() + " not found"));
 
+                Optional<Monitoring> existingMonitoring = monitoringRepository.findByDevice(device);
+                if (existingMonitoring.isPresent()) {
+                    throw new IllegalArgumentException("Monitoring already exists for device " + device.getDeviceCode());
+                }
+
                 if (request.getDescription() == null || request.getDescription().isEmpty()) {
-                    throw new IllegalArgumentException("Description cannot be null or empty");
+                    throw new IllegalArgumentException("Descrição não pode ser nula ou vazia");
                 }
 
                 final String newMonitoringCode = generateMonitoringCode(lastNumber);
@@ -66,12 +77,24 @@ public class MonitoringService {
 
                 final Monitoring monitoring = new Monitoring();
                 monitoring.setMonitoringCode(newMonitoringCode);
-                monitoring.setUser(userService.getCurrentUser());
                 monitoring.setDevice(device);
                 monitoring.setMonitoringStatus(request.getMonitoringStatus());
                 monitoring.setDescription(request.getDescription());
                 monitoring.setCreatedAt(LocalDateTime.now());
                 monitoring.setUpdatedAt(LocalDateTime.now());
+
+                User currentUser = userService.getCurrentUser();
+                monitoring.setCreatedBy(currentUser);
+
+                if (!isUserAuthorizedToCreateMonitoring(currentUser, device)) {
+                    throw new UnauthorizedException("User not authorized to create monitoring for device " + request.getDeviceCode());
+                }
+
+                if (device.getUsers() != null) {
+                    List<User> copiedUsers = new ArrayList<>(device.getUsers());
+                    monitoring.setUsers(copiedUsers);
+                }
+
                 monitoringToAdd.add(monitoring);
             }
         }
@@ -79,11 +102,25 @@ public class MonitoringService {
         return monitoringRepository.saveAll(monitoringToAdd);
     }
 
+
+    private boolean isUserAuthorizedToCreateMonitoring(User currentUser, Device device) {
+        if (device.getCreatedBy().getId().equals(currentUser.getId())) {
+            return true;
+        }
+
+        if (device.getUsers().stream().anyMatch(user -> user.getId().equals(currentUser.getId()))) {
+            return true;
+        }
+
+        return currentUser.getRole().name().equals("ADMIN");
+    }
+
+
     public Monitoring getMonitoringByCode(final String monitoringCode) {
         final Monitoring monitoring = monitoringRepository.findByMonitoringCode(monitoringCode)
                 .orElseThrow(() -> new ResourceNotFoundException("Monitoring not found"));
         final User currentUser = userService.getCurrentUser();
-        if (!monitoring.getUser().getId().equals(currentUser.getId()) && !currentUser.getRole().name().equals("ADMIN")) {
+        if (!monitoring.getCreatedBy().getId().equals(currentUser.getId()) && !currentUser.getRole().name().equals("ADMIN")) {
             throw new UnauthorizedException("User not authorized to view this monitoring");
         }
         return monitoring;
@@ -94,6 +131,7 @@ public class MonitoringService {
                                                final String userName, final String deviceName, final String createdAt, final String updatedAt) {
         final Pageable pageable = PageRequest.of(pageNo, pageSize,
                 sortDir.equalsIgnoreCase(Sort.Direction.ASC.name()) ? Sort.by(sortBy).ascending() : Sort.by(sortBy).descending());
+
         final User currentUser = userService.getCurrentUser();
 
         final LocalDateTime[] createdAtRange = parseDateRange(createdAt);
@@ -108,6 +146,7 @@ public class MonitoringService {
                 .and(MonitoringSpecification.createdAtBefore(createdAtRange[1]))
                 .and(MonitoringSpecification.updatedAtAfter(updatedAtRange[0]))
                 .and(MonitoringSpecification.updatedAtBefore(updatedAtRange[1]));
+
         if (!currentUser.getRole().name().equals("ADMIN")) {
             spec = spec.and(MonitoringSpecification.hasUserId(currentUser.getId()));
         }
@@ -124,6 +163,7 @@ public class MonitoringService {
                 .last(monitorings.isLast())
                 .build();
     }
+
 
     private LocalDateTime[] parseDateRange(final String dateRange) {
         final DateTimeFormatter formatter = DateTimeFormatter.ofPattern("MM/dd/yyyy");
@@ -152,7 +192,7 @@ public class MonitoringService {
                 .orElseThrow(() -> new ResourceNotFoundException("Monitoring with code " + monitoringCode + " not found"));
 
         final User currentUser = userService.getCurrentUser();
-        if (!monitoring.getUser().getId().equals(currentUser.getId()) && !currentUser.getRole().name().equals("ADMIN")) {
+        if (!monitoring.getCreatedBy().getId().equals(currentUser.getId()) && !currentUser.getRole().name().equals("ADMIN")) {
             throw new UnauthorizedException("User not authorized to update this monitoring");
         }
 
@@ -163,24 +203,36 @@ public class MonitoringService {
         }
 
         monitoring.setMonitoringStatus(monitoringRequest.getMonitoringStatus());
-        monitoring.setDescription(monitoringRequest.getDescription()); // Adicionei a atualização da descrição, se necessário
-        monitoring.setUpdatedAt(LocalDateTime.now()); // Atualiza o campo updatedAt, se existir
+        monitoring.setDescription(monitoringRequest.getDescription());
+        monitoring.setUpdatedAt(LocalDateTime.now());
 
         return monitoringRepository.save(monitoring);
     }
 
     @Transactional
     public SuccessResponse deleteMonitoring(final String monitoringCode) {
+
         final Monitoring monitoring = monitoringRepository.findByMonitoringCode(monitoringCode)
                 .orElseThrow(() -> new ResourceNotFoundException("Monitoring with code " + monitoringCode + " not found"));
 
         final User currentUser = userService.getCurrentUser();
-        if (!monitoring.getUser().getId().equals(currentUser.getId()) && !currentUser.getRole().name().equals("ADMIN")) {
+
+        if (!monitoring.getCreatedBy().getId().equals(currentUser.getId()) && !currentUser.getRole().name().equals("ADMIN")) {
             throw new UnauthorizedException("User not authorized to delete this monitoring");
         }
 
-        monitoringRepository.deleteByMonitoringCode(monitoringCode);
-        return new SuccessResponse(200, "Monitoring was successfully deleted.");
+        try {
+            monitoringRepository.deleteByMonitoringCode(monitoringCode);
+            monitoringRepository.flush();
+
+            boolean exists = monitoringRepository.existsByMonitoringCode(monitoringCode);
+            if (exists) {
+                throw new RuntimeException("Failed to delete Monitoring with code: " + monitoringCode);
+            }
+            return new SuccessResponse(200, "Monitoring was successfully deleted.");
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to delete Monitoring with code: " + monitoringCode, e);
+        }
     }
 
     public void deleteMultipleMonitoring(final List<String> monitoringCodes) {

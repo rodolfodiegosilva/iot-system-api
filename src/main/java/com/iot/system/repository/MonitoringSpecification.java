@@ -1,7 +1,10 @@
 package com.iot.system.repository;
 
+import com.iot.system.model.Device;
 import com.iot.system.model.Monitoring;
 import com.iot.system.model.MonitoringStatus;
+import com.iot.system.user.User;
+import jakarta.persistence.criteria.Join;
 import org.springframework.data.jpa.domain.Specification;
 
 import java.time.LocalDateTime;
@@ -44,7 +47,17 @@ public class MonitoringSpecification {
         return (root, query, builder) -> updatedAtEnd == null ? builder.conjunction() : builder.lessThanOrEqualTo(root.get("updatedAt"), updatedAtEnd);
     }
 
+    public static Specification<Device> hasCreatedBy(String userName) {
+        return (root, query, builder) -> userName == null ? builder.conjunction() : builder.like(root.get("users").get("name"), "%" + userName + "%");
+    }
+
     public static Specification<Monitoring> hasUserId(Long userId) {
-        return (root, query, builder) -> userId == null ? builder.conjunction() : builder.equal(root.get("user").get("id"), userId);
+        return (root, query, builder) -> {
+            if (userId == null) {
+                return builder.conjunction();
+            }
+            Join<Device, User> userJoin = root.join("users");
+            return builder.equal(userJoin.get("id"), userId);
+        };
     }
 }
