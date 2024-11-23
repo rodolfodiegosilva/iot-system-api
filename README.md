@@ -2,7 +2,6 @@
 
 This is the IoT System API, which manages IoT devices and their monitoring. The API allows registration, authentication, and management of devices, as well as device status monitoring.
 
-
 The IoT System API is deployed on an AWS EC2 instance running Amazon Linux.
 
 The deployment process is automated using GitHub Actions, with pipelines defined in `.github/workflows/build.yml` and `.github/workflows/deploy.yml`. These pipelines are responsible for building and deploying the application, running unit tests, and generating code coverage reports.
